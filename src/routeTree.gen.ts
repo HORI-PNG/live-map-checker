@@ -10,63 +10,33 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as BenchParseRouteImport } from './routes/bench/parse'
-import { Route as BenchSsrRouteImport } from './routes/bench/ssr'
-import { Route as BenchVerifyRouteImport } from './routes/bench/verify'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BenchParseRoute = BenchParseRouteImport.update({
-  id: '/bench/parse',
-  path: '/bench/parse',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BenchSsrRoute = BenchSsrRouteImport.update({
-  id: '/bench/ssr',
-  path: '/bench/ssr',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BenchVerifyRoute = BenchVerifyRouteImport.update({
-  id: '/bench/verify',
-  path: '/bench/verify',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/bench/parse': typeof BenchParseRoute
-  '/bench/ssr': typeof BenchSsrRoute
-  '/bench/verify': typeof BenchVerifyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/bench/parse': typeof BenchParseRoute
-  '/bench/ssr': typeof BenchSsrRoute
-  '/bench/verify': typeof BenchVerifyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/bench/parse': typeof BenchParseRoute
-  '/bench/ssr': typeof BenchSsrRoute
-  '/bench/verify': typeof BenchVerifyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/bench/parse' | '/bench/ssr' | '/bench/verify'
+  fullPaths: '/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/bench/parse' | '/bench/ssr' | '/bench/verify'
-  id: '__root__' | '/' | '/bench/parse' | '/bench/ssr' | '/bench/verify'
+  to: '/'
+  id: '__root__' | '/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BenchParseRoute: typeof BenchParseRoute
-  BenchSsrRoute: typeof BenchSsrRoute
-  BenchVerifyRoute: typeof BenchVerifyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -78,35 +48,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/bench/parse': {
-      id: '/bench/parse'
-      path: '/bench/parse'
-      fullPath: '/bench/parse'
-      preLoaderRoute: typeof BenchParseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/bench/ssr': {
-      id: '/bench/ssr'
-      path: '/bench/ssr'
-      fullPath: '/bench/ssr'
-      preLoaderRoute: typeof BenchSsrRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/bench/verify': {
-      id: '/bench/verify'
-      path: '/bench/verify'
-      fullPath: '/bench/verify'
-      preLoaderRoute: typeof BenchVerifyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BenchParseRoute: BenchParseRoute,
-  BenchSsrRoute: BenchSsrRoute,
-  BenchVerifyRoute: BenchVerifyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
