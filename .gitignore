@@ -12,3 +12,6 @@ playwright-report
 
 .dev.vars*
 !.dev.vars.example
+
+# 会場サイトから保存した本物のページ（再配布しない）
+*.real.html
