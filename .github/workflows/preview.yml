@@ -1,0 +1,59 @@
+name: Preview
+
+# PR ごとに staging Worker の新しいバージョンを上げ、pr-<番号> の別名URLを PR にコメントする。
+# 本番には影響しない（デプロイせず、バージョンをアップロードするだけ）。
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    # フォークからの PR にはシークレットを渡さない
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: preview
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build (staging)
+        run: pnpm build
+        env:
+          CLOUDFLARE_ENV: staging
+      - name: Upload version with alias
+        id: upload
+        run: |
+          pnpm exec wrangler versions upload --preview-alias "pr-${{ github.event.pull_request.number }}" | tee upload.log
+          url=$(grep -oE 'https://pr-${{ github.event.pull_request.number }}-[a-z0-9.-]+\.workers\.dev' upload.log | head -1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: Comment preview URL
+        if: steps.upload.outputs.url != ''
+        uses: actions/github-script@v8
+        env:
+          PREVIEW_URL: ${{ steps.upload.outputs.url }}
+        with:
+          script: |
+            const marker = '<!-- lmc-preview -->'
+            const body = `${marker}\nプレビュー: ${process.env.PREVIEW_URL}\n（staging の D1・AI は mock。コミット ${context.sha.slice(0, 7)}）`
+            const { owner, repo } = context.repo
+            const issue_number = context.payload.pull_request.number
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number })
+            const existing = comments.find((c) => c.body?.includes(marker))
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body })
