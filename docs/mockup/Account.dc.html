@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>アカウント</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&amp;family=Noto+Sans+JP:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#6EE7D0}a:hover{color:#B9F5E9}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: radial-gradient(circle at 12% 6%, rgba(57,234,195,0.30), transparent 40%), radial-gradient(circle at 92% 38%, rgba(98,82,149,0.38), transparent 45%), radial-gradient(circle at 25% 96%, rgba(0,167,175,0.26), transparent 45%), #0E1A20; color: #EAF4F2; font-family: 'Noto Sans JP', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+<header style="margin: 16px 16px 0; height: 56px; box-sizing: border-box; padding: 0 18px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); border-radius: 18px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(0,0,0,0.25); display: flex; align-items: center; gap: 8px; flex-shrink: 0">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#39EAC3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg>
+<span style="flex-grow: 1; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 16px">Live Map Checker</span>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 22px 16px 16px; display: flex; flex-direction: column; gap: 12px">
+<section style="padding: 0 8px 4px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.08em; color: #6EE7D0">06 — アカウント</span>
+<h1 style="margin: 0; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 28px; line-height: 1.3; text-align: center">アカウントと設定</h1>
+</section>
+<sc-if value="{{isGuest}}" hint-placeholder-val="{{ true }}">
+<section style="padding: 18px; border-radius: 16px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.10); display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 14px">
+<span style="width: 56px; height: 56px; flex-shrink: 0; box-sizing: border-box; border-radius: 28px; background: rgba(255,255,255,0.08); border: 1px dashed rgba(255,255,255,0.35); display: flex; align-items: center; justify-content: center; color: #A9BEC4"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 17px">ゲスト</span><span style="font-size: 12px; color: #A9BEC4">ログインしていません</span></span>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.6; color: #A9BEC4">ログインすると、お気に入りの会場とアーティストを登録して、来場が決まったときに通知を受け取れます。</p>
+<a href="#" style="height: 48px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; background: rgba(57,234,195,0.22); border: 1px solid rgba(57,234,195,0.6); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18); color: #EAF4F2; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 15px">ログイン / 新規登録</a>
+<span style="align-self: center; height: 22px; box-sizing: border-box; padding: 0 8px; border-radius: 6px; background: rgba(139,123,216,0.25); border: 1px solid rgba(139,123,216,0.6); color: #DCD6FF; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700">v2で追加予定</span>
+</section>
+</sc-if>
+<sc-if value="{{isMember}}" hint-placeholder-val="{{ false }}">
+<section style="padding: 18px; border-radius: 16px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.10); display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 14px">
+<span style="width: 56px; height: 56px; flex-shrink: 0; border-radius: 28px; background: #39EAC3; color: #0E1A20; display: flex; align-items: center; justify-content: center; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 22px">H</span>
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 17px">[ユーザー名]</span><span style="font-size: 12px; color: #A9BEC4">[メールアドレス]</span></span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<a href="Favorites.dc.html" style="padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); text-decoration: none; color: #EAF4F2; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #A9BEC4">お気に入りアーティスト</span><span style="font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 20px">3<span style="font-size: 12px; font-weight: 700"> 組</span></span></a>
+<a href="#" style="padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); text-decoration: none; color: #EAF4F2; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #A9BEC4">お気に入り会場</span><span style="font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 20px">2<span style="font-size: 12px; font-weight: 700"> 会場</span></span></a>
+</div>
+</section>
+</sc-if>
+<h2 style="margin: 6px 8px 0; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 15px">表示</h2>
+<section style="padding: 16px; border-radius: 16px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 14px; font-weight: 700">テーマ</span>
+<div role="group" aria-label="テーマの選択" style="padding: 4px; border-radius: 14px; background: rgba(0,0,0,0.20); border: 1px solid rgba(255,255,255,0.10); display: flex; gap: 4px">
+<sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+<button type="button" onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="flex: 1 1 0; height: 40px; box-sizing: border-box; border-radius: 10px; cursor: pointer; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 13px; background: {{t.bg}}; border: 1px solid {{t.border}}; color: {{t.fg}}">{{t.label}}</button>
+</sc-for>
+</div>
+<span style="font-size: 12px; line-height: 1.6; color: #A9BEC4">初期設定はダークです。「システム」を選ぶと、端末の設定に合わせて切り替わります。</span>
+</section>
+<h2 style="margin: 6px 8px 0; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 15px">通知</h2>
+<section style="padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); display: flex; align-items: center; gap: 12px; opacity: {{notifyOpacity}}">
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 700">お気に入りが会場に来るとき</span><span style="font-size: 12px; color: #A9BEC4">お気に入りの会場とアーティストが一致したら通知します</span></span>
+<button type="button" role="switch" aria-checked="{{notifyChecked}}" aria-label="お気に入りが会場に来るときの通知" disabled="{{isGuest}}" onClick="{{toggleNotify}}" style="position: relative; width: 52px; height: 32px; flex-shrink: 0; box-sizing: border-box; padding: 0; border-radius: 16px; cursor: pointer; background: {{swBg}}; border: 1px solid {{swBorder}}"><span style="position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 12px; background: #EAF4F2; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transform: {{swKnob}}; transition: transform 0.25s"></span></button>
+</section>
+<h2 style="margin: 6px 8px 0; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 15px">その他</h2>
+<ul style="list-style: none; margin: 0; padding: 0; border-radius: 16px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); overflow: hidden">
+<li><a href="#" style="height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #EAF4F2; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.10)">ライブ情報の取得方法について<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a></li>
+<li><a href="#" style="height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #EAF4F2; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.10)">利用規約<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a></li>
+<li><a href="#" style="height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #EAF4F2; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.10)">プライバシーポリシー<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a></li>
+<li><a href="#" style="height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #EAF4F2; font-size: 14px">お問い合わせ<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a></li>
+</ul>
+<sc-if value="{{isMember}}" hint-placeholder-val="{{ false }}">
+<button type="button" style="height: 48px; box-sizing: border-box; border-radius: 12px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,140,140,0.45); color: #FFB4B4; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 14px">ログアウト</button>
+</sc-if>
+<p style="margin: 4px 0 0; font-size: 11px; color: #8FA3A9; text-align: center">Live Map Checker v1.0.0</p>
+</div>
+<div style="margin: 0 16px 16px; flex-shrink: 0">
+<dc-import name="TabBar" active="account" theme="dark" hint-size="358px,64px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"loggedIn":{"editor":"boolean","default":false,"section":"表示確認"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { theme: 'dark', notify: true };
+}
+renderVals() {
+const member = this.props.loggedIn ?? false;
+const opts = [
+{ id: 'system', label: 'システム' },
+{ id: 'light', label: 'ライト' },
+{ id: 'dark', label: 'ダーク' }
+];
+const notifyOn = member && this.state.notify;
+return {
+isGuest: !member,
+isMember: member,
+themes: opts.map((o) => {
+const sel = this.state.theme === o.id;
+return {
+label: o.label,
+pressed: sel ? 'true' : 'false',
+bg: sel ? 'rgba(57,234,195,0.22)' : 'transparent',
+border: sel ? 'rgba(57,234,195,0.6)' : 'transparent',
+fg: sel ? '#EAF4F2' : '#A9BEC4',
+pick: () => this.setState({ theme: o.id })
+};
+}),
+notifyOpacity: member ? 1 : 0.5,
+notifyChecked: notifyOn ? 'true' : 'false',
+swBg: notifyOn ? 'rgba(57,234,195,0.55)' : 'rgba(255,255,255,0.12)',
+swBorder: notifyOn ? 'rgba(57,234,195,0.8)' : 'rgba(255,255,255,0.22)',
+swKnob: notifyOn ? 'translateX(20px)' : 'translateX(0)',
+toggleNotify: () => this.setState({ notify: !this.state.notify })
+};
+}
+}
+</script>
+</body>
+</html>

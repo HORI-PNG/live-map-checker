@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>下部ナビ（スライド対応）</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&amp;family=Noto+Sans+JP:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<nav aria-label="メインメニュー" onPointerDown="{{onDown}}" onPointerMove="{{onMove}}" onPointerUp="{{onUp}}" onPointerCancel="{{onUp}}" onPointerLeave="{{onUp}}" onContextMenu="{{onMenu}}" style="position: relative; width: 358px; height: 64px; box-sizing: border-box; padding: 6px; background: {{barBg}}; border: 1px solid {{barBorder}}; backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); border-radius: 18px; box-shadow: {{barShadow}}; display: flex; gap: 4px; touch-action: none; user-select: none; -webkit-user-select: none; font-family: 'Noto Sans JP', sans-serif">
+<div aria-hidden="true" style="position: absolute; left: 6px; top: 6px; width: 112px; height: 50px; box-sizing: border-box; border-radius: 12px; background: {{indBg}}; border: 1px solid {{indBorder}}; box-shadow: {{indShadow}}; backdrop-filter: blur(10px) saturate(160%); -webkit-backdrop-filter: blur(10px) saturate(160%); transform: {{indTransform}}; transition: {{indTransition}}; pointer-events: none"></div>
+<a href="Main.dc.html" aria-current="{{cur0}}" draggable="false" style="position: relative; z-index: 1; flex: 1 1 0; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; color: {{c0}}; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg>マップ</a>
+<a href="Favorites.dc.html" aria-current="{{cur1}}" draggable="false" style="position: relative; z-index: 1; flex: 1 1 0; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; color: {{c1}}; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21.5l8.8-8.8a5 5 0 0 0 0-7.1z"></path></svg>お気に入り</a>
+<a href="Account.dc.html" aria-current="{{cur2}}" draggable="false" style="position: relative; z-index: 1; flex: 1 1 0; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; color: {{c2}}; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>アカウント</a>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["map","fav","account"],"default":"map"},"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":358,"height":64}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { drag: false, x: null };
+this.timer = null;
+this.left = 0;
+this.scale = 1;
+this.lastX = 0;
+}
+componentWillUnmount() {
+clearTimeout(this.timer);
+}
+clampX(clientX) {
+const x = (clientX - this.left) / this.scale - 7 - 56;
+return Math.max(0, Math.min(232, x));
+}
+renderVals() {
+const dark = (this.props.theme ?? 'dark') !== 'light';
+const base = { map: 0, fav: 1, account: 2 }[this.props.active ?? 'map'] ?? 0;
+const x = this.state.x != null ? this.state.x : base * 116;
+const near = Math.round(x / 116);
+const drag = this.state.drag;
+const on = dark ? '#39EAC3' : '#1E3440';
+const off = dark ? '#A9BEC4' : '#4A5F6A';
+return {
+barBg: dark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.55)',
+barBorder: dark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.85)',
+barShadow: dark ? 'inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(0,0,0,0.3)' : '0 8px 24px rgba(30,52,64,0.10)',
+indBg: dark ? (drag ? 'rgba(57,234,195,0.26)' : 'rgba(57,234,195,0.14)') : (drag ? 'rgba(57,234,195,0.50)' : 'rgba(57,234,195,0.35)'),
+indBorder: dark ? (drag ? 'rgba(57,234,195,0.7)' : 'rgba(57,234,195,0.35)') : 'rgba(0,167,175,0.45)',
+indShadow: drag ? '0 10px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.40)' : 'inset 0 1px 0 rgba(255,255,255,0.18)',
+indTransform: 'translateX(' + x + 'px) scale(' + (drag ? 1.1 : 1) + ')',
+indTransition: drag ? 'transform 0.06s linear, box-shadow 0.2s, background 0.2s' : 'transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2), box-shadow 0.2s, background 0.2s',
+c0: near === 0 ? on : off,
+c1: near === 1 ? on : off,
+c2: near === 2 ? on : off,
+cur0: base === 0 ? 'page' : 'false',
+cur1: base === 1 ? 'page' : 'false',
+cur2: base === 2 ? 'page' : 'false',
+onDown: (e) => {
+const r = e.currentTarget.getBoundingClientRect();
+this.left = r.left;
+this.scale = r.width / 358 || 1;
+this.lastX = e.clientX;
+clearTimeout(this.timer);
+this.timer = setTimeout(() => this.setState({ drag: true, x: this.clampX(this.lastX) }), 250);
+},
+onMove: (e) => {
+this.lastX = e.clientX;
+if (this.state.drag) this.setState({ x: this.clampX(e.clientX) });
+},
+onUp: () => {
+clearTimeout(this.timer);
+if (this.state.drag) {
+const i = Math.round((this.state.x ?? 0) / 116);
+this.setState({ drag: false, x: i * 116 });
+}
+},
+onMenu: (e) => e.preventDefault()
+};
+}
+}
+</script>
+</body>
+</html>

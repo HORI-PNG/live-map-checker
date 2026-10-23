@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>PC版 アカウントと設定</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&amp;family=Noto+Sans+JP:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#6EE7D0}a:hover{color:#B9F5E9}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; padding: 24px; background: radial-gradient(circle at 8% 6%, rgba(57,234,195,0.26), transparent 35%), radial-gradient(circle at 92% 30%, rgba(98,82,149,0.34), transparent 40%), radial-gradient(circle at 40% 100%, rgba(0,167,175,0.22), transparent 40%), #0E1A20; color: #EAF4F2; font-family: 'Noto Sans JP', sans-serif; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px">
+<div style="flex: 0 0 88px">
+<dc-import name="SideNav" active="account" hint-size="88px,320px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; display: flex; justify-content: center">
+<div style="width: 100%; max-width: 880px; display: flex; flex-direction: column; gap: 20px">
+<section style="padding: 8px 8px 0; display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.08em; color: #6EE7D0">06 — アカウント</span>
+<h1 style="margin: 0; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 36px; line-height: 1.25">アカウントと設定</h1>
+</section>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start">
+<section style="padding: 22px; border-radius: 20px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.10); display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="width: 64px; height: 64px; flex-shrink: 0; box-sizing: border-box; border-radius: 32px; background: rgba(255,255,255,0.08); border: 1px dashed rgba(255,255,255,0.35); display: flex; align-items: center; justify-content: center; color: #A9BEC4"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 20px">ゲスト</span><span style="font-size: 13px; color: #A9BEC4">ログインしていません</span></span>
+</div>
+<p style="margin: 0; font-size: 14px; line-height: 1.7; color: #A9BEC4">ログインすると、お気に入りの会場とアーティストを登録して、来場が決まったときに通知を受け取れます。</p>
+<a href="#" style="height: 48px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; text-decoration: none; background: rgba(57,234,195,0.22); border: 1px solid rgba(57,234,195,0.6); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18); color: #EAF4F2; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 15px">ログイン / 新規登録</a>
+<span style="align-self: center; height: 22px; box-sizing: border-box; padding: 0 8px; border-radius: 6px; background: rgba(139,123,216,0.25); border: 1px solid rgba(139,123,216,0.6); color: #DCD6FF; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700">v2で追加予定</span>
+</section>
+<div style="display: flex; flex-direction: column; gap: 16px">
+<section style="padding: 20px; border-radius: 20px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 16px">テーマ</h2>
+<div role="group" aria-label="テーマの選択" style="padding: 4px; border-radius: 14px; background: rgba(0,0,0,0.20); border: 1px solid rgba(255,255,255,0.10); display: flex; gap: 4px">
+<sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+<button type="button" onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="flex: 1 1 0; height: 40px; box-sizing: border-box; border-radius: 10px; cursor: pointer; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 13px; background: {{t.bg}}; border: 1px solid {{t.border}}; color: {{t.fg}}">{{t.label}}</button>
+</sc-for>
+</div>
+<span style="font-size: 12px; line-height: 1.6; color: #A9BEC4">初期設定はダークです。「システム」を選ぶと、端末の設定に合わせて切り替わります。</span>
+</section>
+<section style="padding: 16px 20px; border-radius: 20px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); display: flex; align-items: center; gap: 12px; opacity: 0.5">
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 700">お気に入りが会場に来るとき通知</span><span style="font-size: 12px; color: #A9BEC4">ログイン後に使えます（v2）</span></span>
+<button type="button" role="switch" aria-checked="false" aria-label="お気に入りが会場に来るときの通知" disabled="{{yes}}" style="position: relative; width: 52px; height: 32px; flex-shrink: 0; box-sizing: border-box; padding: 0; border-radius: 16px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.22)"><span style="position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 12px; background: #EAF4F2"></span></button>
+</section>
+</div>
+</div>
+<section style="border-radius: 20px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); overflow: hidden">
+<h2 style="margin: 0; padding: 16px 20px 8px; font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 700; font-size: 16px">その他</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))">
+<a href="#" style="height: 52px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #EAF4F2; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.10)">ライブ情報の取得方法について<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a>
+<a href="#" style="height: 52px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #EAF4F2; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.10)">利用規約<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a>
+<a href="#" style="height: 52px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #EAF4F2; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.10)">プライバシーポリシー<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a>
+<a href="#" style="height: 52px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #EAF4F2; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.10)">お問い合わせ<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a>
+</div>
+</section>
+<p style="margin: 0; font-size: 12px; color: #8FA3A9; text-align: center">Live Map Checker v1.0.0</p>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { theme: 'dark' };
+}
+renderVals() {
+const opts = [
+{ id: 'system', label: 'システム' },
+{ id: 'light', label: 'ライト' },
+{ id: 'dark', label: 'ダーク' }
+];
+return {
+yes: true,
+themes: opts.map((o) => {
+const sel = this.state.theme === o.id;
+return {
+label: o.label,
+pressed: sel ? 'true' : 'false',
+bg: sel ? 'rgba(57,234,195,0.22)' : 'transparent',
+border: sel ? 'rgba(57,234,195,0.6)' : 'transparent',
+fg: sel ? '#EAF4F2' : '#A9BEC4',
+pick: () => this.setState({ theme: o.id })
+};
+})
+};
+}
+}
+</script>
+</body>
+</html>

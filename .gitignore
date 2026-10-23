@@ -1,0 +1,14 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+.env
+.tanstack
+.wrangler
+.output
+test-results
+playwright-report
+
+.dev.vars*
+!.dev.vars.example
