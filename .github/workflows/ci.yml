@@ -42,6 +42,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      # ローカルの D1（Miniflare）にマイグレーションとシードを入れる。Cloudflare には接続しない
+      - run: pnpm db:setup:local
       - run: pnpm test:e2e
         env:
           CI: true

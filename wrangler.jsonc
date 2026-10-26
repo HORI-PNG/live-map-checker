@@ -19,9 +19,26 @@
     "AI_MODEL": "claude-sonnet-5-5",
     "AI_DAILY_BUDGET_USD": "1.00"
   },
+  // マイグレーションは drizzle-kit generate で作り、wrangler d1 migrations apply で適用する
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lmc-prod",
+      "database_id": "9b46d2dd-c996-4b6e-8878-7b57075e3786",
+      "migrations_dir": "drizzle/migrations"
+    }
+  ],
   "env": {
     "staging": {
       "triggers": { "crons": [] },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "lmc-staging",
+          "database_id": "32cfb3ef-4189-45b5-b971-7d35d9a72389",
+          "migrations_dir": "drizzle/migrations"
+        }
+      ],
       "vars": {
         "APP_ENV": "staging",
         "AI_PROVIDER": "mock",

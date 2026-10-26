@@ -41,5 +41,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # マイグレーションは「追加 → 移行 → 削除」の順で分ける（docs/plan.md 9章）ので、デプロイ前に適用してよい
+      - name: Migrate and seed production D1
+        run: |
+          pnpm db:migrate:prod
+          pnpm db:seed:prod
       - run: pnpm build
       - run: pnpm exec wrangler deploy
