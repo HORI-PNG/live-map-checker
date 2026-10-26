@@ -1,5 +1,6 @@
 // 初期データ（docs/plan.md 2章）。会場の追加・取得方法の変更はこのファイルの PR で行う。
 // `pnpm db:seed:<local|staging|prod>` で冪等な SQL に変換して流し込む（何度実行しても同じ結果）。
+// DB を直接書き換えても、次のデプロイでこのファイルの値に戻る。変更は必ずここで行う。
 import type { FETCH_MODES, ROBOTS_RESULTS, TERMS_VERDICTS, VENUE_KINDS } from '../schema'
 
 export type RegionSeed = { slug: string; name: string; displayName: string }
@@ -15,6 +16,8 @@ export type VenueSeed = {
   scraperKey: string | null
   scraperConfig: Record<string, unknown> | null
   venueKind: (typeof VENUE_KINDS)[number]
+  /** 会場をやめるときは false にする（公演や確認記録が参照しているので行は消さない）。省略時は true */
+  isActive?: boolean
 }
 export type VenuePolicySeed = {
   venue: string
@@ -23,6 +26,7 @@ export type VenuePolicySeed = {
   termsUrl: string | null
   termsVerdict: (typeof TERMS_VERDICTS)[number]
   termsQuote: string | null
+  /** UTC の ISO 文字列（例: 2026-10-23T06:00:00Z） */
   checkedAt: string
   checkedBy: string
   note: string | null
@@ -225,7 +229,7 @@ export const VENUES: VenueSeed[] = [
   },
 ]
 
-const CHECKED_AT = '2026-10-23'
+const CHECKED_AT = '2026-10-23T06:00:00Z'
 const CHECKED_BY = 'Claude Code による調査（運営者が確認）'
 const ZEPP_ROBOTS = 'User-agent: * / Disallow: /wp-admin/ のみ。スケジュールは対象外'
 

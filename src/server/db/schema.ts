@@ -15,6 +15,8 @@ export const CLASSIFIED_BY = ['venue_label', 'rule', 'ai', 'manual'] as const
 export const AI_SEARCH_STATUSES = ['running', 'succeeded', 'failed', 'budget_exceeded'] as const
 export const FETCH_RUN_STATUSES = ['success', 'failed', 'skipped'] as const
 export const FETCH_ERROR_KINDS = ['network', 'http', 'robots', 'parse', 'empty', 'drop'] as const
+export const FETCH_TRIGGERS = ['cron', 'manual'] as const
+export const VERIFICATION_VERDICTS = ['verified', 'rejected', 'error'] as const
 
 export const regions = sqliteTable('regions', {
   id: integer('id').primaryKey(),
@@ -74,6 +76,7 @@ export const venuePolicies = sqliteTable(
     termsUrl: text('terms_url'),
     termsVerdict: text('terms_verdict', { enum: TERMS_VERDICTS }).notNull(),
     termsQuote: text('terms_quote'),
+    /** 確認した日時（UTC の ISO 文字列）。同じ日に何度確認しても履歴が残る */
     checkedAt: text('checked_at').notNull(),
     checkedBy: text('checked_by').notNull(),
     note: text('note'),
@@ -161,7 +164,7 @@ export const aiVerifications = sqliteTable(
     httpStatus: integer('http_status'),
     artistFound: integer('artist_found', { mode: 'boolean' }).notNull(),
     dateFound: integer('date_found', { mode: 'boolean' }).notNull(),
-    verdict: text('verdict', { enum: ['verified', 'rejected', 'error'] }).notNull(),
+    verdict: text('verdict', { enum: VERIFICATION_VERDICTS }).notNull(),
     checkedAt: text('checked_at').notNull().default(nowIso),
   },
   (t) => [index('ai_verifications_search_idx').on(t.aiSearchId)],
@@ -175,7 +178,7 @@ export const fetchRuns = sqliteTable(
     venueId: integer('venue_id')
       .notNull()
       .references(() => venues.id),
-    trigger: text('trigger', { enum: ['cron', 'manual'] }).notNull(),
+    trigger: text('trigger', { enum: FETCH_TRIGGERS }).notNull(),
     startedAt: text('started_at').notNull().default(nowIso),
     finishedAt: text('finished_at'),
     status: text('status', { enum: FETCH_RUN_STATUSES }).notNull(),

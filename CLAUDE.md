@@ -50,6 +50,6 @@ TanStack Start（React, TypeScript）on Cloudflare Workers / D1 + Drizzle（0.45
 - **秘密情報**: API キーはコードや設定ファイルに書かない。ローカルは `.dev.vars`（コミットしない。見本は `.dev.vars.example`）、本番は `wrangler secret put`。
 - **AI**: 必ず `src/server/ai/provider.ts` の `AiProvider` 経由で呼ぶ。テストとプレビューは `mock`。予算（`AI_DAILY_BUDGET_USD`）の確認を省略しない。AI 検索は利用者が会場を開いたときだけ行い、24時間キャッシュする（Cron では行わない）。AI の結果は出典 URL の検証を通ったものだけ表示する。
 - **スクレイピング**: 取得ルールは `src/server/scraping/registry.ts` に登録した会場だけ。新しい会場の取得ルールを書く前に、規約と robots.txt を確認して `venue_policies` のシードに記録する。robots.txt の確認処理を外さない。
-- **DB**: スキーマの変更は必ず `pnpm db:generate` で作ったマイグレーションで行う（手で SQL を書かない）。列の削除・型変更は「追加 → 移行 → 削除」の2回の PR に分ける。会場などの初期データは `src/server/db/seed/data.ts` を編集する（本番・staging にはデプロイ時に自動で流れる）。
+- **DB**: スキーマの変更は必ず `pnpm db:generate` で作ったマイグレーションで行う（手で SQL を書かない）。列の削除・型変更は「追加 → 移行 → 削除」の2回の PR に分ける。会場などの初期データは `src/server/db/seed/data.ts` を編集する（本番・staging にはデプロイ時に自動で流れる）。staging の D1（`lmc-staging`）は全 PR のプレビューで共有しており、マージされなかった PR のマイグレーションも入る。ずれたら `wrangler d1 time-travel restore lmc-staging --env staging --timestamp <時刻>` で戻すか、作り直して main のマイグレーションとシードを流し直す。
 - **日付**: 公演日は JST の `YYYY-MM-DD` 文字列、時刻は `HH:MM`。`new Date()` をそのまま比較しない（`src/shared/dates.ts` を使う）。
 - **Workers の制限**: PR 5 までに有料プランへ切り替える予定（PR 1 の実測で無料プランの CPU 10ms/回を超えたため）。切替後も、1回の処理は軽く保つ（サブリクエスト・D1 クエリの回数を抑える）。HTML の解析は HTMLRewriter を使い、DOM を丸ごと作るライブラリは使わない。D1 の書き込みは `db.batch()` でまとめる。

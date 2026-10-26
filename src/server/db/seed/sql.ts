@@ -15,7 +15,8 @@ function upsert(table: string, row: Record<string, string>, conflict: string): s
   return `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${Object.values(row).join(', ')}) ON CONFLICT(${conflict}) DO UPDATE SET ${updates.join(', ')};`
 }
 
-export function buildSeedSql(): string {
+/** 1要素 = 1文。値に改行が含まれても壊れないよう、呼び出し側で文字列を分割しない */
+export function buildSeedStatements(): string[] {
   const lines: string[] = []
 
   REGIONS.forEach((r, i) => {
@@ -63,7 +64,7 @@ export function buildSeedSql(): string {
           scraper_config: q(v.scraperConfig ? JSON.stringify(v.scraperConfig) : null),
           venue_kind: q(v.venueKind),
           sort_order: q(order),
-          is_active: q(true),
+          is_active: q(v.isActive ?? true),
         },
         'slug',
       ),
@@ -90,5 +91,5 @@ export function buildSeedSql(): string {
     )
   }
 
-  return `${lines.join('\n')}\n`
+  return lines
 }

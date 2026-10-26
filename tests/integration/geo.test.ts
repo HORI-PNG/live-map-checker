@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
 import { createDb } from '@/server/db/client'
-import { buildSeedSql } from '@/server/db/seed/sql.ts'
+import { buildSeedStatements } from '@/server/db/seed/sql.ts'
 import { getPrefectureDetail, getRegionDetail, getVenueDetail, listRegionSummaries } from '@/server/repo/geo'
 
 const db = createDb(env.DB)
@@ -71,15 +71,18 @@ describe('getVenueDetail', () => {
 
   it('無効にした会場は返さない', async () => {
     await env.DB.prepare("UPDATE venues SET is_active = 0 WHERE slug = 'zepp-namba'").run()
-    expect(await getVenueDetail(db, 'zepp-namba')).toBeNull()
-    expect((await listRegionSummaries(db)).find((r) => r.slug === 'kansai')?.venueCount).toBe(3)
+    try {
+      expect(await getVenueDetail(db, 'zepp-namba')).toBeNull()
+      expect((await listRegionSummaries(db)).find((r) => r.slug === 'kansai')?.venueCount).toBe(3)
+    } finally {
+      await env.DB.prepare("UPDATE venues SET is_active = 1 WHERE slug = 'zepp-namba'").run()
+    }
   })
 })
 
 describe('シード', () => {
   it('2回流しても行が増えない（冪等）', async () => {
-    const statements = buildSeedSql().trim().split('\n')
-    await env.DB.batch(statements.map((s) => env.DB.prepare(s)))
+    await env.DB.batch(buildSeedStatements().map((s) => env.DB.prepare(s)))
     const row = await env.DB.prepare(
       'SELECT (SELECT count(*) FROM venues) AS v, (SELECT count(*) FROM venue_policies) AS p',
     ).first<{ v: number; p: number }>()

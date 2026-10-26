@@ -1,7 +1,7 @@
 // シードを D1 に流し込む: node scripts/seed.ts <local|staging|prod>
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { buildSeedSql } from '../src/server/db/seed/sql.ts'
+import { buildSeedStatements } from '../src/server/db/seed/sql.ts'
 
 const TARGETS = {
   local: ['lmc-prod', '--local'],
@@ -17,6 +17,6 @@ if (!(target in TARGETS)) {
 
 mkdirSync('.wrangler', { recursive: true })
 const file = '.wrangler/seed.sql'
-writeFileSync(file, buildSeedSql())
+writeFileSync(file, `${buildSeedStatements().join('\n')}\n`)
 const [db, ...flags] = TARGETS[target]
 execFileSync('pnpm', ['exec', 'wrangler', 'd1', 'execute', db, ...flags, '--file', file, '--yes'], { stdio: 'inherit' })
