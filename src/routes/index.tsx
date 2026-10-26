@@ -1,24 +1,41 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { DesktopExplorer } from '@/components/map/DesktopExplorer'
+import { MapCard, MobileIntro } from '@/components/map/MobileIntro'
+import { MapLegend, TileMap } from '@/components/map/TileMap'
+import { regionTileItems } from '@/components/map/tile-items'
+import { JAPAN_LAYOUT } from '@/lib/map-layout'
+import { fetchJapanMap } from '@/server/functions/geo'
 
-export const Route = createFileRoute('/')({ component: Home })
+export const Route = createFileRoute('/')({
+  loader: () => fetchJapanMap(),
+  component: Home,
+})
 
-// 地図は feat/map-navigation で実装する
 function Home() {
+  const { regions } = Route.useLoaderData()
   return (
     <>
-      <PageHeader />
-      <section className="flex flex-col gap-2 px-6 pt-7 pb-5 lg:px-2 lg:pt-2">
-        <span className="kicker lg:text-[13px]">01 — 場所から探す</span>
-        <h1 className="m-0 text-center text-[30px] leading-snug font-extrabold lg:text-left lg:text-[40px] lg:leading-tight">
-          行ける場所から、
-          <br className="lg:hidden" />
-          ライブを探そう。
-        </h1>
-        <p className="m-0 text-sm leading-relaxed text-fg-muted lg:text-[15px]">
+      <div className="lg:hidden">
+        <PageHeader />
+        <MobileIntro
+          kicker="01 — 場所から探す"
+          title={
+            <>
+              行ける場所から、
+              <br />
+              ライブを探そう。
+            </>
+          }
+        >
           地方を選んで、近くの会場に来るアーティストをチェック。
-        </p>
-      </section>
+        </MobileIntro>
+        <MapCard>
+          <TileMap layout={JAPAN_LAYOUT} items={regionTileItems(regions)} label="日本地図（地方を選ぶ）" />
+          <MapLegend activeLabel="情報あり（タップで選択）" />
+        </MapCard>
+      </div>
+      <DesktopExplorer regions={regions} />
     </>
   )
 }

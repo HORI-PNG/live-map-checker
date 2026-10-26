@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as FavoritesRouteImport } from './routes/favorites'
+import { Route as PrefecturesPrefRouteImport } from './routes/prefectures.$pref'
+import { Route as RegionsRegionRouteImport } from './routes/regions.$region'
+import { Route as VenuesVenueRouteImport } from './routes/venues.$venue'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +31,81 @@ const FavoritesRoute = FavoritesRouteImport.update({
   path: '/favorites',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrefecturesPrefRoute = PrefecturesPrefRouteImport.update({
+  id: '/prefectures/$pref',
+  path: '/prefectures/$pref',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegionsRegionRoute = RegionsRegionRouteImport.update({
+  id: '/regions/$region',
+  path: '/regions/$region',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VenuesVenueRoute = VenuesVenueRouteImport.update({
+  id: '/venues/$venue',
+  path: '/venues/$venue',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/favorites': typeof FavoritesRoute
+  '/prefectures/$pref': typeof PrefecturesPrefRoute
+  '/regions/$region': typeof RegionsRegionRoute
+  '/venues/$venue': typeof VenuesVenueRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/favorites': typeof FavoritesRoute
+  '/prefectures/$pref': typeof PrefecturesPrefRoute
+  '/regions/$region': typeof RegionsRegionRoute
+  '/venues/$venue': typeof VenuesVenueRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/favorites': typeof FavoritesRoute
+  '/prefectures/$pref': typeof PrefecturesPrefRoute
+  '/regions/$region': typeof RegionsRegionRoute
+  '/venues/$venue': typeof VenuesVenueRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/favorites'
+  fullPaths:
+    | '/'
+    | '/account'
+    | '/favorites'
+    | '/prefectures/$pref'
+    | '/regions/$region'
+    | '/venues/$venue'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/favorites'
-  id: '__root__' | '/' | '/account' | '/favorites'
+  to:
+    | '/'
+    | '/account'
+    | '/favorites'
+    | '/prefectures/$pref'
+    | '/regions/$region'
+    | '/venues/$venue'
+  id:
+    | '__root__'
+    | '/'
+    | '/account'
+    | '/favorites'
+    | '/prefectures/$pref'
+    | '/regions/$region'
+    | '/venues/$venue'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
   FavoritesRoute: typeof FavoritesRoute
+  PrefecturesPrefRoute: typeof PrefecturesPrefRoute
+  RegionsRegionRoute: typeof RegionsRegionRoute
+  VenuesVenueRoute: typeof VenuesVenueRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +131,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FavoritesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/prefectures/$pref': {
+      id: '/prefectures/$pref'
+      path: '/prefectures/$pref'
+      fullPath: '/prefectures/$pref'
+      preLoaderRoute: typeof PrefecturesPrefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/regions/$region': {
+      id: '/regions/$region'
+      path: '/regions/$region'
+      fullPath: '/regions/$region'
+      preLoaderRoute: typeof RegionsRegionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/venues/$venue': {
+      id: '/venues/$venue'
+      path: '/venues/$venue'
+      fullPath: '/venues/$venue'
+      preLoaderRoute: typeof VenuesVenueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +159,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
   FavoritesRoute: FavoritesRoute,
+  PrefecturesPrefRoute: PrefecturesPrefRoute,
+  RegionsRegionRoute: RegionsRegionRoute,
+  VenuesVenueRoute: VenuesVenueRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
