@@ -9,17 +9,14 @@ import { fetchPrefecture } from '@/server/functions/geo'
 export const Route = createFileRoute('/prefectures/$pref')({
   loader: ({ params }) => fetchPrefecture({ data: { slug: params.pref } }),
   head: ({ loaderData }) => ({
-    meta: [
-      { title: loaderData ? `${loaderData.prefecture.prefecture.name}の会場 | Live Map Checker` : 'Live Map Checker' },
-    ],
+    meta: [{ title: loaderData ? `${loaderData.prefecture.name}の会場 | Live Map Checker` : 'Live Map Checker' }],
   }),
   component: PrefecturePage,
 })
 
 function PrefecturePage() {
-  const { regions, prefecture, regionDetail } = Route.useLoaderData()
-  const { region, venues } = prefecture
-  const pref = prefecture.prefecture
+  const { region, prefectures, prefecture: pref } = Route.useLoaderData()
+  const venues = pref.venues
   return (
     <>
       <div className="lg:hidden">
@@ -39,14 +36,14 @@ function PrefecturePage() {
               （会場は随時追加をしていきます。）
             </>
           ) : (
-            'この県の会場は準備中です。'
+            `この${pref.name.slice(-1)}の会場は準備中です。`
           )}
         </MobileIntro>
         <div className="mx-4">
           <VenueCards venues={venues} tone={toneOf(pref.slug)} />
         </div>
       </div>
-      <DesktopExplorer regions={regions} selected={regionDetail} highlightPrefecture={pref.slug} />
+      <DesktopExplorer selected={{ region, prefectures }} highlightPrefecture={pref.slug} />
     </>
   )
 }

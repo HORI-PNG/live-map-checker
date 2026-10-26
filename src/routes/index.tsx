@@ -4,16 +4,13 @@ import { DesktopExplorer } from '@/components/map/DesktopExplorer'
 import { MapCard, MobileIntro } from '@/components/map/MobileIntro'
 import { MapLegend, TileMap } from '@/components/map/TileMap'
 import { regionTileItems } from '@/components/map/tile-items'
+import { useRegionSummaries } from '@/components/map/use-regions'
 import { JAPAN_LAYOUT } from '@/lib/map-layout'
-import { fetchJapanMap } from '@/server/functions/geo'
 
-export const Route = createFileRoute('/')({
-  loader: () => fetchJapanMap(),
-  component: Home,
-})
+export const Route = createFileRoute('/')({ component: Home })
 
 function Home() {
-  const { regions } = Route.useLoaderData()
+  const regions = useRegionSummaries()
   return (
     <>
       <div className="lg:hidden">
@@ -35,7 +32,7 @@ function Home() {
           <MapLegend activeLabel="情報あり（タップで選択）" />
         </MapCard>
       </div>
-      <DesktopExplorer regions={regions} />
+      <DesktopExplorer />
     </>
   )
 }

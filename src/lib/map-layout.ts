@@ -55,15 +55,16 @@ export const REGION_LAYOUTS: Record<string, TileLayout> = {
 /** 情報がある地方・県のタイルの色（ミントとティール） */
 export const ACTIVE_TILE_COLORS = ['var(--brand-accent)', 'var(--brand-main)'] as const
 
-const TONES = new Map(
+// 地方・県の色。配置で指定が無いものは、配置の中の並び順で交互に決める（どの画面でも同じ色になる）
+const TONES = new Map<string, 0 | 1>(
   [JAPAN_LAYOUT, ...Object.values(REGION_LAYOUTS)].flatMap((layout) =>
-    layout.tiles.filter((t) => t.tone !== undefined).map((t) => [t.slug, t.tone as 0 | 1] as const),
+    layout.tiles.map((t, i) => [t.slug, t.tone ?? ((i % 2) as 0 | 1)] as const),
   ),
 )
 
-/** 地方・県の色（tone）。配置に指定が無ければ fallback を使う */
-export function toneOf(slug: string, fallback: 0 | 1 = 0): 0 | 1 {
-  return TONES.get(slug) ?? fallback
+/** 地方・県の色（0 = ミント、1 = ティール）。配置に無い地方・県はミント */
+export function toneOf(slug: string): 0 | 1 {
+  return TONES.get(slug) ?? 0
 }
 
 /** 番号付きの一覧で i 番目に使う色。県の色から始めて交互にする */

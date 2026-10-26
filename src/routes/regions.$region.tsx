@@ -2,9 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DesktopExplorer } from '@/components/map/DesktopExplorer'
 import { MapCard, MobileIntro } from '@/components/map/MobileIntro'
+import { PrefectureSections } from '@/components/map/PrefectureSections'
 import { MapLegend, TileMap } from '@/components/map/TileMap'
 import { prefectureTileItems } from '@/components/map/tile-items'
-import { VenueCards } from '@/components/map/VenueLinks'
 import { REGION_LAYOUTS } from '@/lib/map-layout'
 import { fetchRegion } from '@/server/functions/geo'
 
@@ -17,8 +17,10 @@ export const Route = createFileRoute('/regions/$region')({
 })
 
 function RegionPage() {
-  const { regions, region, prefectures } = Route.useLoaderData()
+  const { region, prefectures } = Route.useLoaderData()
   const layout = REGION_LAYOUTS[region.slug]
+  // 地図のタイルに無い県（配置をまだ作っていない地方を含む）の会場は、地図の下に一覧で出す
+  const unmapped = prefectures.filter((p) => p.venues.length > 0 && !layout?.tiles.some((t) => t.slug === p.slug))
   return (
     <>
       <div className="lg:hidden">
@@ -29,7 +31,7 @@ function RegionPage() {
         <MobileIntro kicker="02 — 県を選ぶ" title={region.displayName}>
           {region.venueCount > 0 ? '色が付いている県に、登録済みの会場があります。' : 'この地方の会場は準備中です。'}
         </MobileIntro>
-        {layout ? (
+        {layout && (
           <MapCard>
             <TileMap
               layout={layout}
@@ -38,18 +40,10 @@ function RegionPage() {
             />
             <MapLegend activeLabel="会場あり（タップで選択）" />
           </MapCard>
-        ) : (
-          // 県のタイル配置をまだ作っていない地方は、会場の一覧だけ出す
-          <div className="mx-4 flex flex-col gap-2.5">
-            {prefectures
-              .filter((p) => p.venues.length > 0)
-              .map((p) => (
-                <VenueCards key={p.slug} venues={p.venues} />
-              ))}
-          </div>
         )}
+        {unmapped.length > 0 && <PrefectureSections prefectures={unmapped} />}
       </div>
-      <DesktopExplorer regions={regions} selected={{ region, prefectures }} />
+      <DesktopExplorer selected={{ region, prefectures }} />
     </>
   )
 }

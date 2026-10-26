@@ -2,6 +2,7 @@ import { createRootRoute, HeadContent, Link, Outlet, Scripts } from '@tanstack/r
 import { AppShell } from '@/components/layout/AppShell'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
+import { fetchJapanMap } from '@/server/functions/geo'
 import appCss from '../styles/app.css?url'
 
 export const Route = createRootRoute({
@@ -14,6 +15,9 @@ export const Route = createRootRoute({
     ],
     links: [{ rel: 'stylesheet', href: appCss }],
   }),
+  // 地方ごとの会場数（地図のタイル）は全画面で使い、変わるのはシードを流したときだけなので使い回す
+  loader: () => fetchJapanMap(),
+  staleTime: 10 * 60_000,
   shellComponent: RootDocument,
   component: () => (
     <AppShell>

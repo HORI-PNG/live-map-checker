@@ -8,7 +8,7 @@ test.describe('スマホ: 地図 → 地方 → 県 → 会場', () => {
     await open(page, '/')
     const japan = page.getByRole('navigation', { name: '日本地図（地方を選ぶ）' })
     await expect(japan.getByRole('link')).toHaveCount(2) // 九州・関西だけ選べる
-    await expect(japan.getByText('北海道')).toHaveAttribute('aria-disabled', 'true')
+    await expect(japan.getByText('北海道（準備中）')).toBeVisible()
 
     await japan.getByRole('link', { name: /^九州\s*、\s*6会場$/ }).click()
     await expect(page).toHaveURL('/regions/kyushu')
@@ -67,7 +67,9 @@ test.describe('PC: 地図＋右パネル', () => {
   })
 })
 
-test('存在しない地方は 404', async ({ page }) => {
-  await open(page, '/regions/atlantis')
-  await expect(page.getByRole('heading', { name: 'ページが見つかりません' })).toBeVisible()
-})
+for (const path of ['/regions/atlantis', '/regions/Kyushu', '/prefectures/fukuoka%27', '/venues/no-such-venue']) {
+  test(`存在しない・形の違う URL は 404: ${path}`, async ({ page }) => {
+    await open(page, path)
+    await expect(page.getByRole('heading', { name: 'ページが見つかりません' })).toBeVisible()
+  })
+}

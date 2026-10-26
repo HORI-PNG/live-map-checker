@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { JAPAN_LAYOUT, REGION_LAYOUTS, type TileLayout, toneOf } from '@/lib/map-layout'
+import { PREFECTURES, REGIONS } from '@/server/db/seed/data.ts'
 
 const layouts: [string, TileLayout][] = [['japan', JAPAN_LAYOUT], ...Object.entries(REGION_LAYOUTS)]
 
@@ -25,4 +26,15 @@ it('色はモックアップどおり（九州・福岡はミント、関西・�
   expect([toneOf('kyushu'), toneOf('fukuoka'), toneOf('kansai'), toneOf('osaka'), toneOf('kumamoto')]).toEqual([
     0, 0, 1, 1, 1,
   ])
+})
+
+describe('配置とシードデータの対応', () => {
+  it('日本地図のタイルは、シードの8地方とちょうど一致する', () => {
+    expect(JAPAN_LAYOUT.tiles.map((t) => t.slug).sort()).toEqual(REGIONS.map((r) => r.slug).sort())
+  })
+
+  it.each(Object.entries(REGION_LAYOUTS))('%s のタイルは、その地方の県とちょうど一致する', (region, layout) => {
+    const expected = PREFECTURES.filter((p) => p.region === region).map((p) => p.slug)
+    expect(layout.tiles.map((t) => t.slug).sort()).toEqual(expected.sort())
+  })
 })

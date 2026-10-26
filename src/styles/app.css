@@ -153,6 +153,8 @@
   --radius-xl: 16px;
   --radius-2xl: 20px;
   --radius-segment: 14px;
+  /* 凡例や見出しの小さな色の四角 */
+  --radius-swatch: 4px;
   --radius-nav: 22px;
 }
 

@@ -4,16 +4,17 @@ import { JAPAN_LAYOUT, toneColor, toneOf } from '@/lib/map-layout'
 import type { PrefectureWithVenues, RegionSummary } from '@/server/repo/geo'
 import { MapLegend, TileMap } from './TileMap'
 import { regionTileItems } from './tile-items'
+import { useRegionSummaries } from './use-regions'
 import { VenueRows } from './VenueLinks'
 
 type Props = {
-  regions: RegionSummary[]
   selected?: { region: RegionSummary; prefectures: PrefectureWithVenues[] }
   /** 県の URL で開いたとき、その県の見出しまでスクロールして強調する */
   highlightPrefecture?: string
 }
 
-export function DesktopExplorer({ regions, selected, highlightPrefecture }: Props) {
+export function DesktopExplorer({ selected, highlightPrefecture }: Props) {
+  const regions = useRegionSummaries()
   useEffect(() => {
     if (!highlightPrefecture) return
     document.getElementById(`pref-${highlightPrefecture}`)?.scrollIntoView({ block: 'nearest' })
@@ -73,8 +74,8 @@ function RegionPanel({
           {prefectureCountLabel(withVenues)} · {region.venueCount}会場
         </span>
       </div>
-      {withVenues.map((pref, i) => {
-        const tone = toneOf(pref.slug, (i % 2) as 0 | 1)
+      {withVenues.map((pref) => {
+        const tone = toneOf(pref.slug)
         return (
           <section key={pref.slug} aria-labelledby={`pref-${pref.slug}`} className="flex flex-col gap-1.5">
             <h3
@@ -85,7 +86,7 @@ function RegionPanel({
                   : 'm-0 mt-1 flex scroll-mt-6 items-center gap-2 px-1 text-sm font-bold'
               }
             >
-              <span aria-hidden="true" className="size-2.5 rounded-[3px]" style={{ background: toneColor(tone, 0) }} />
+              <span aria-hidden="true" className="size-2.5 rounded-swatch" style={{ background: toneColor(tone, 0) }} />
               {pref.name}
               <span className="font-medium text-fg-muted">{pref.venues.length}会場</span>
             </h3>
