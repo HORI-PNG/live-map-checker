@@ -25,6 +25,13 @@ const result = spawnSync('pnpm', ['exec', 'biome', 'check', '--write', '--no-err
   cwd: projectDir,
   encoding: 'utf8',
 })
+// pnpm が見つからない・タイムアウトなど、Biome 自体を起動できなかったときは編集を止めない
+if (result.error || result.status === null) {
+  process.stderr.write(
+    `整形フックを実行できませんでした（${result.error?.message ?? 'unknown'}）。pnpm format を手動で実行してください\n`,
+  )
+  process.exit(0)
+}
 // 自動で直せない指摘は Claude に返して直させる（終了コード 2 で stderr が Claude に渡る）
 if (result.status !== 0) {
   process.stderr.write(`biome check で指摘があります: ${rel}\n${result.stdout}${result.stderr}`)

@@ -180,9 +180,6 @@ importers:
       "@anthropic-ai/sdk":
         specifier: ^1.1.0
         version: 1.1.0(zod@4.6.7)
-      "@fontsource-variable/geist":
-        specifier: ^5.3.0
-        version: 5.3.0
       "@tailwindcss/vite":
         specifier: ^4.1.18
         version: 4.3.3(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
@@ -204,9 +201,6 @@ importers:
       lucide-react:
         specifier: ^1.61.0
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)
-      next-themes:
-        specifier: ^0.4.6
-        version: 0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       radix-ui:
         specifier: ^1.8.1
         version: 1.8.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -216,9 +210,6 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.3.1(react@19.3.1)
-      shadcn:
-        specifier: ^4.22.1
-        version: 4.22.1(supports-color@10.2.2)
       sonner:
         specifier: ^2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -262,6 +253,9 @@ importers:
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
+      shadcn:
+        specifier: ^4.22.1
+        version: 4.22.1(supports-color@10.2.2)
       typescript:
         specifier: ^6.0.2
         version: 6.0.3
@@ -1203,10 +1197,6 @@ packages:
     resolution:
       { integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww== }
 
-  "@fontsource-variable/geist@5.3.0":
-    resolution:
-      { integrity: sha512-j0m+vLQuG5XAYoHtGCVu0spvlGreR3EzpECUVzkFmI1mTVnAO38l/NEPDCFgZ177JxzYJCLSmTQibIiYPilGrA== }
-
   "@hono/node-server@2.1.5":
     resolution:
       { integrity: sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q== }
@@ -1428,9 +1418,9 @@ packages:
     resolution:
       { integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ== }
 
-  "@modelcontextprotocol/sdk@1.32.1":
+  "@modelcontextprotocol/sdk@1.32.2":
     resolution:
-      { integrity: sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw== }
+      { integrity: sha512-SWsVtH/0vULSQStoZ6xxH2K09Li8fXYTMC64ZeogCdpZ3XSi1eCPOByV1OpuJxuI3OcmHhosDWYyii07tpPsLw== }
     engines: { node: ">=18" }
     peerDependencies:
       "@cfworker/json-schema": ^4.1.1
@@ -2839,9 +2829,9 @@ packages:
     resolution:
       { integrity: sha512-F1+K8EbfOZE49dtoPtmxUQrpXaBIl3ICvasLh+nJta0xkz+9kF/7uet9fLnwKqhDrmj6g+6K3Tw9yQPUg2ka5g== }
 
-  body-parser@2.3.0:
+  body-parser@2.4.0:
     resolution:
-      { integrity: sha512-2cGmJupaNgg+QUwVLAucDuWuoMZ6EX9iHDRswZ5lsNYEmwPaRknMPCLZz07yTzVq/83p4o/wzbDZbBrTvGGTIw== }
+      { integrity: sha512-Ifk1KcLrxaGt1occQagQNFNNOqRt1LFuehEnHHzB8Z6cRgIxRU1TBaiIsUiCdA+gy5PL7Y1IX31DNKkRmxtXjQ== }
     engines: { node: ">=18" }
 
   brace-expansion@5.0.12:
@@ -3528,9 +3518,9 @@ packages:
     resolution:
       { integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ== }
 
-  ip-address@10.7.4:
+  ip-address@10.7.5:
     resolution:
-      { integrity: sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg== }
+      { integrity: sha512-t2v0rkILYv9WXmSL7TpAaU3HXgaFYOPUcH3QHgwQ++gpJuH3bqyMy4Fvt/DJCTKwzH3Cf+bAp5W/mFL39KPLzA== }
     engines: { node: ">= 12" }
 
   ipaddr.js@1.9.1:
@@ -3998,13 +3988,6 @@ packages:
       { integrity: sha512-NMPBRMJgiQHjbd8phG3Vebdx4kZ1H121rbl5IkMqeOsahptB9BKo/d7oJ3zTXqTgagn2bWlNSXkh0QUGM31RYg== }
     engines: { node: ">=18" }
 
-  next-themes@0.4.6:
-    resolution:
-      { integrity: sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA== }
-    peerDependencies:
-      react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
-
   node-releases@2.0.59:
     resolution:
       { integrity: sha512-5qr2okC4ItAI0hG5SaV0HoYMpnM/Y6+Oqr7AmPYy/2uEoGvS+GbSKLeRxSS1uAdu59yz0ouzcuXievSgg///WA== }
@@ -4040,9 +4023,9 @@ packages:
       { integrity: sha512-XrsrhT5sybtKI6wakr2SPOlGZWWYbUXZ7a0jT8/QOeAPau+1X/bSegNe5YR75oJmEZQbKningirmGOEJCIk61Q== }
     engines: { node: ">=12.20.0" }
 
-  on-finished@2.4.1:
+  on-finished@2.4.2:
     resolution:
-      { integrity: sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg== }
+      { integrity: sha512-ATWUv387i+nLD49EiDoOft5scf32Vsdz3ktrQJG9bi7jRFmaXTssvyvj1EmeKVVgvesbqUtvQQvaS2TpTukAZQ== }
     engines: { node: ">= 0.8" }
 
   once@1.4.0:
@@ -5555,8 +5538,6 @@ snapshots:
 
   "@floating-ui/utils@0.2.12": {}
 
-  "@fontsource-variable/geist@5.3.0": {}
-
   "@hono/node-server@2.1.5(hono@4.13.13)":
     dependencies:
       hono: 4.13.13
@@ -5691,7 +5672,7 @@ snapshots:
       "@jridgewell/resolve-uri": 3.1.2
       "@jridgewell/sourcemap-codec": 1.6.0
 
-  "@modelcontextprotocol/sdk@1.32.1(supports-color@10.2.2)(zod@4.6.7)":
+  "@modelcontextprotocol/sdk@1.32.2(supports-color@10.2.2)(zod@4.6.7)":
     dependencies:
       "@hono/node-server": 2.1.5(hono@4.13.13)
       ajv: 8.20.0
@@ -7012,14 +6993,14 @@ snapshots:
 
   blake3-wasm@2.1.5: {}
 
-  body-parser@2.3.0(supports-color@10.2.2):
+  body-parser@2.4.0(supports-color@10.2.2):
     dependencies:
       bytes: 3.1.2
       content-type: 2.1.0
       debug: 4.4.3(supports-color@10.2.2)
       http-errors: 2.0.1
       iconv-lite: 0.7.3
-      on-finished: 2.4.1
+      on-finished: 2.4.2
       qs: 6.16.1
       raw-body: 3.0.2
       type-is: 2.1.0
@@ -7362,14 +7343,14 @@ snapshots:
     dependencies:
       debug: 4.4.3(supports-color@10.2.2)
       express: 5.3.0(supports-color@10.2.2)
-      ip-address: 10.7.4
+      ip-address: 10.7.5
     transitivePeerDependencies:
       - supports-color
 
   express@5.3.0(supports-color@10.2.2):
     dependencies:
       accepts: 2.0.0
-      body-parser: 2.3.0(supports-color@10.2.2)
+      body-parser: 2.4.0(supports-color@10.2.2)
       content-disposition: 2.0.1
       content-type: 2.1.0
       cookie: 0.7.2
@@ -7384,7 +7365,7 @@ snapshots:
       http-errors: 2.0.1
       merge-descriptors: 2.0.0
       mime-types: 3.0.2
-      on-finished: 2.4.1
+      on-finished: 2.4.2
       once: 1.4.0
       parseurl: 1.3.3
       proxy-addr: 2.0.8
@@ -7438,7 +7419,7 @@ snapshots:
       debug: 4.4.3(supports-color@10.2.2)
       encodeurl: 2.0.0
       escape-html: 1.0.3
-      on-finished: 2.4.1
+      on-finished: 2.4.2
       parseurl: 1.3.3
       statuses: 2.0.2
     transitivePeerDependencies:
@@ -7538,7 +7519,7 @@ snapshots:
 
   inherits@2.0.4: {}
 
-  ip-address@10.7.4: {}
+  ip-address@10.7.5: {}
 
   ipaddr.js@1.9.1: {}
 
@@ -7818,11 +7799,6 @@ snapshots:
     dependencies:
       content-type: 2.1.0
 
-  next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
-    dependencies:
-      react: 19.3.1
-      react-dom: 19.3.1(react@19.3.1)
-
   node-releases@2.0.59: {}
 
   npm-run-path@4.0.1:
@@ -7842,7 +7818,7 @@ snapshots:
 
   obug@2.2.1: {}
 
-  on-finished@2.4.1:
+  on-finished@2.4.2:
     dependencies:
       ee-first: 1.1.1
 
@@ -8149,7 +8125,7 @@ snapshots:
       http-errors: 2.0.1
       mime-types: 3.0.2
       ms: 2.1.3
-      on-finished: 2.4.1
+      on-finished: 2.4.2
       range-parser: 1.3.0
       statuses: 2.0.2
     transitivePeerDependencies:
@@ -8179,7 +8155,7 @@ snapshots:
       "@babel/plugin-transform-typescript": 7.29.9(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
       "@babel/preset-typescript": 7.29.7(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
       "@dotenvx/dotenvx": 1.75.1
-      "@modelcontextprotocol/sdk": 1.32.1(supports-color@10.2.2)(zod@4.6.7)
+      "@modelcontextprotocol/sdk": 1.32.2(supports-color@10.2.2)(zod@4.6.7)
       "@shadcn/registry": 0.2.0(supports-color@10.2.2)
       "@types/validate-npm-package-name": 4.0.2
       browserslist: 4.29.4
@@ -8290,7 +8266,7 @@ snapshots:
 
   socks@2.8.10:
     dependencies:
-      ip-address: 10.7.4
+      ip-address: 10.7.5
       smart-buffer: 4.2.0
 
   sonner@2.0.8(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1):

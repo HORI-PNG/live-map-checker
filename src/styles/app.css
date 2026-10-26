@@ -106,14 +106,24 @@
   --color-fg-muted: var(--fg-muted);
   --color-fg-subtle: var(--fg-subtle);
   --color-kicker: var(--kicker);
+}
 
-  /* 角丸（要件定義書 8章: ヘッダー18 / カード16〜20 / ボタン10〜12 / バッジ8） */
+/*
+ * 角丸（要件定義書 8章: ヘッダー18 / カード16〜20 / ボタン10〜12 / バッジ8）
+ * shadcn/ui の部品が使う rounded-sm/md/lg/xl もこの値に合わせる。
+ * inline ではない @theme なので CSS 変数（--radius-card など）としても使える。
+ */
+@theme {
   --radius-badge: 8px;
   --radius-button: 12px;
   --radius-card: 16px;
   --radius-panel: 20px;
   --radius-header: 18px;
-  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
 }
 
 @utility glass {
@@ -124,11 +134,9 @@
   box-shadow: var(--glass-inset);
 }
 
+/* glass に浮いている影を足したもの（ヘッダーなど） */
 @utility glass-raised {
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  @apply glass;
   box-shadow: var(--glass-inset), var(--glass-shadow);
 }
 

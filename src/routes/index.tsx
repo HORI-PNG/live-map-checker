@@ -6,7 +6,7 @@ export const Route = createFileRoute('/')({ component: Home })
 function Home() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-[880px] flex-col gap-6 px-4 py-4">
-      <header className="glass-raised flex h-14 items-center gap-2 rounded-[18px] px-[18px]">
+      <header className="glass-raised flex h-14 items-center gap-2 rounded-header px-[18px]">
         <svg
           width="22"
           height="22"
