@@ -32,6 +32,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Migrate and seed staging D1
+        run: |
+          pnpm db:migrate:staging
+          pnpm db:seed:staging
       - name: Build (staging)
         run: pnpm build
         env:
