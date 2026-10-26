@@ -1,4 +1,6 @@
-import { createRootRoute, HeadContent, Scripts } from '@tanstack/react-router'
+import { createRootRoute, HeadContent, Link, Outlet, Scripts } from '@tanstack/react-router'
+import { AppShell } from '@/components/layout/AppShell'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import appCss from '../styles/app.css?url'
 
@@ -13,7 +15,31 @@ export const Route = createRootRoute({
     links: [{ rel: 'stylesheet', href: appCss }],
   }),
   shellComponent: RootDocument,
+  component: () => (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  ),
+  notFoundComponent: NotFound,
 })
+
+function NotFound() {
+  return (
+    <>
+      <PageHeader
+        back={{ to: '/', label: '日本地図に戻る' }}
+        crumbs={[{ label: '日本地図', to: '/' }, { label: 'ページが見つかりません' }]}
+      />
+      <section className="flex flex-col gap-3 px-6 pt-7">
+        <span className="kicker">404</span>
+        <h1 className="m-0 text-2xl font-extrabold">ページが見つかりません</h1>
+        <p className="m-0 text-sm text-fg-muted">
+          URL が変わったか、会場の登録が終わった可能性があります。<Link to="/">日本地図から探す</Link>
+        </p>
+      </section>
+    </>
+  )
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
