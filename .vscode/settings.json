@@ -1,4 +1,5 @@
 {
+  "chat.canvases.enabled": true,
   "files.watcherExclude": {
     "**/routeTree.gen.ts": true
   },
