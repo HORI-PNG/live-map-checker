@@ -38,9 +38,12 @@ jobs:
           CLOUDFLARE_ENV: staging
       - name: Upload version with alias
         id: upload
+        # shell: bash を明示すると pipefail が有効になり、tee の前の wrangler の失敗でジョブが止まる
+        shell: bash
         run: |
           pnpm exec wrangler versions upload --preview-alias "pr-${{ github.event.pull_request.number }}" | tee upload.log
           url=$(grep -oE 'https://pr-${{ github.event.pull_request.number }}-[a-z0-9.-]+\.workers\.dev' upload.log | head -1)
+          if [ -z "$url" ]; then echo "::error::プレビューURLを取得できませんでした"; exit 1; fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
       - name: Comment preview URL
         if: steps.upload.outputs.url != ''
