@@ -52,6 +52,11 @@
   --nav-indicator-border: rgba(57, 234, 195, 0.35);
   --nav-indicator-border-drag: rgba(57, 234, 195, 0.7);
   --nav-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 24px rgba(0, 0, 0, 0.3);
+  /* 選択中の部品（テーマ選択の押されたボタンなど） */
+  --accent-soft: rgba(57, 234, 195, 0.22);
+  --accent-soft-border: rgba(57, 234, 195, 0.6);
+  --highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --nav-indicator-shadow-drag: 0 10px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
   /* 切り替えボタンの土台（テーマ選択など） */
   --segment-bg: rgba(0, 0, 0, 0.2);
   --segment-border: rgba(255, 255, 255, 0.1);
@@ -90,6 +95,7 @@
   --nav-indicator-border: rgba(0, 167, 175, 0.45);
   --nav-indicator-border-drag: rgba(0, 167, 175, 0.45);
   --nav-shadow: 0 8px 24px rgba(30, 52, 64, 0.1);
+  --nav-indicator-shadow-drag: 0 10px 24px rgba(30, 52, 64, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.4);
   --segment-bg: rgba(30, 52, 64, 0.06);
   --segment-border: rgba(30, 52, 64, 0.1);
 
@@ -146,6 +152,8 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-2xl: 20px;
+  --radius-segment: 14px;
+  --radius-nav: 22px;
 }
 
 @utility glass {

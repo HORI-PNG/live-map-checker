@@ -28,7 +28,7 @@ function Account() {
         <h2 className="mx-2 mt-1.5 mb-0 text-[15px] font-bold">表示</h2>
         <fieldset className="glass m-0 flex min-w-0 flex-col gap-2.5 rounded-card p-4">
           <legend className="float-left mb-2.5 p-0 text-sm font-bold">テーマ</legend>
-          <div className="clear-both flex gap-1 rounded-[14px] border border-[var(--segment-border)] bg-[var(--segment-bg)] p-1">
+          <div className="clear-both flex gap-1 rounded-segment border border-[var(--segment-border)] bg-[var(--segment-bg)] p-1">
             {THEME_OPTIONS.map((option) => (
               <button
                 key={option.id}
@@ -36,9 +36,9 @@ function Account() {
                 aria-pressed={theme === option.id}
                 onClick={() => setTheme(option.id)}
                 className={cn(
-                  'h-10 flex-1 cursor-pointer rounded-[10px] border font-rounded text-[13px] font-bold transition-colors',
+                  'h-10 flex-1 cursor-pointer rounded-md border font-rounded text-[13px] font-bold transition-colors',
                   theme === option.id
-                    ? 'border-[rgba(57,234,195,0.6)] bg-[rgba(57,234,195,0.22)] text-foreground'
+                    ? 'border-[var(--accent-soft-border)] bg-[var(--accent-soft)] text-foreground'
                     : 'border-transparent bg-transparent text-fg-muted',
                 )}
               >

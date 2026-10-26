@@ -8,19 +8,26 @@ import { TAB_ICONS } from './icons'
 import { activeTabIndex, dragOffset, nearestTab, TABS } from './nav-items'
 
 const LONG_PRESS_MS = 250
+/** ナビの内側の余白（p-1.5）とタブの間隔（gap-1）。インジケーターの初期位置の計算にも使う */
+const PADDING = 6
 const GAP = 4
+
+type Geometry = { firstLeft: number; tabWidth: number; stride: number }
 
 export function TabBar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const current = activeTabIndex(pathname)
 
-  const navRef = useRef<HTMLElement>(null)
+  const tabRefs = useRef<(HTMLAnchorElement | null)[]>([])
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const geometry = useRef({ left: 0, tabWidth: 0, stride: 0 })
+  const geometry = useRef<Geometry>({ firstLeft: 0, tabWidth: 0, stride: 0 })
   const lastX = useRef(0)
+  // 最新の値をイベントの中から読むため、描画用の state とは別に ref でも持つ
+  const draggingRef = useRef(false)
   const suppressClick = useRef(false)
   const [dragging, setDragging] = useState(false)
+  // null のときは URL（現在のタブ）の位置。数値のときは指に合わせた位置（px）
   const [offset, setOffset] = useState<number | null>(null)
 
   // 画面を離れるときに、長押しの待ち時間を止める
@@ -31,10 +38,10 @@ export function TabBar() {
     [],
   )
 
-  // 画面遷移が終わったら、インジケーターの位置を URL（現在のタブ）に任せる
-  // biome-ignore lint/correctness/useExhaustiveDependencies: タブが変わったときだけリセットする
+  // 別のタブへ移動したら、インジケーターの位置を URL に任せる
+  // biome-ignore lint/correctness/useExhaustiveDependencies: タブが変わったときだけ戻す
   useEffect(() => {
-    if (!dragging) setOffset(null)
+    if (!draggingRef.current) setOffset(null)
   }, [current])
 
   function clearTimer() {
@@ -42,62 +49,84 @@ export function TabBar() {
     timer.current = null
   }
 
+  /** 実際のタブの位置から、幅と間隔を測る（余白や枠線の数値をここで持たない） */
   function measure() {
-    const rect = navRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const tabWidth = (rect.width - 2 - 12 - GAP * (TABS.length - 1)) / TABS.length
-    geometry.current = { left: rect.left, tabWidth, stride: tabWidth + GAP }
+    const first = tabRefs.current[0]?.getBoundingClientRect()
+    const second = tabRefs.current[1]?.getBoundingClientRect()
+    if (!first || !second) return
+    geometry.current = { firstLeft: first.left, tabWidth: first.width, stride: second.left - first.left }
   }
 
   function offsetAt(clientX: number) {
-    const { left, tabWidth, stride } = geometry.current
-    return dragOffset(clientX - left, tabWidth, stride, TABS.length)
+    const { firstLeft, tabWidth, stride } = geometry.current
+    return dragOffset(clientX - firstLeft, tabWidth, stride, TABS.length)
   }
 
-  function onPointerDown(e: React.PointerEvent<HTMLElement>) {
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    measure()
-    lastX.current = e.clientX
-    const pointerId = e.pointerId
-    const target = e.currentTarget
-    clearTimer()
-    timer.current = setTimeout(() => {
-      target.setPointerCapture?.(pointerId)
-      setDragging(true)
-      setOffset(offsetAt(lastX.current))
-    }, LONG_PRESS_MS)
-  }
-
-  function onPointerMove(e: React.PointerEvent<HTMLElement>) {
-    lastX.current = e.clientX
-    if (dragging) setOffset(offsetAt(e.clientX))
+  function startDrag(target: HTMLElement, pointerId: number) {
+    target.setPointerCapture?.(pointerId)
+    draggingRef.current = true
+    setDragging(true)
+    setOffset(offsetAt(lastX.current))
   }
 
   function finishDrag(commit: boolean) {
     clearTimer()
-    if (!dragging) return
+    if (!draggingRef.current) return
+    draggingRef.current = false
     setDragging(false)
-    suppressClick.current = true // 指を離したときに発生する click で、別のタブに飛ばないようにする
-    const index = commit && offset !== null ? nearestTab(offset, geometry.current.stride, TABS.length) : current
-    setOffset(index * geometry.current.stride)
-    if (index !== current) navigate({ to: TABS[index].to })
+    // 指を離したときに続けて起きる click で、指の下のタブへ飛ばないようにする。
+    // タッチでは click が起きないこともあるので、少し待って必ず解除する
+    suppressClick.current = true
+    setTimeout(() => {
+      suppressClick.current = false
+    }, 400)
+    const index = commit ? nearestTab(offsetAt(lastX.current), geometry.current.stride, TABS.length) : current
+    if (index === current) {
+      setOffset(null)
+    } else {
+      setOffset(index * geometry.current.stride)
+      navigate({ to: TABS[index].to })
+    }
   }
 
-  const nearIndex = offset !== null ? nearestTab(offset, geometry.current.stride || 1, TABS.length) : current
+  function onPointerDown(e: React.PointerEvent<HTMLElement>) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    suppressClick.current = false
+    measure()
+    lastX.current = e.clientX
+    const target = e.currentTarget
+    const pointerId = e.pointerId
+    clearTimer()
+    timer.current = setTimeout(() => startDrag(target, pointerId), LONG_PRESS_MS)
+    // 長押しが始まる前にナビの外で指を離しても、待ち時間を止める
+    const cancelPending = () => {
+      if (!draggingRef.current) clearTimer()
+    }
+    window.addEventListener('pointerup', cancelPending, { once: true })
+    window.addEventListener('pointercancel', cancelPending, { once: true })
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLElement>) {
+    lastX.current = e.clientX
+    if (draggingRef.current) setOffset(offsetAt(e.clientX))
+  }
+
+  const stride = geometry.current.stride
+  const nearIndex = offset !== null && stride > 0 ? nearestTab(offset, stride, TABS.length) : current
   const transform =
     offset !== null
       ? `translateX(${offset}px) scale(${dragging ? 1.1 : 1})`
-      : // 測る前（サーバー描画・初回表示）は、自分の幅＋すき間の倍数で位置を決める
+      : // 測る前（サーバー描画・初回表示）は、自分の幅＋間隔の倍数で位置を決める
         `translateX(calc(${current} * (100% + ${GAP}px)))`
 
   return (
     <nav
-      ref={navRef}
       aria-label="メインメニュー"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={() => finishDrag(true)}
       onPointerCancel={() => finishDrag(false)}
+      onLostPointerCapture={() => finishDrag(true)}
       onContextMenu={(e) => e.preventDefault()}
       onClickCapture={(e) => {
         if (suppressClick.current) {
@@ -112,24 +141,30 @@ export function TabBar() {
         aria-hidden="true"
         data-dragging={dragging || undefined}
         className={cn(
-          'pointer-events-none absolute top-1.5 left-1.5 h-[calc(100%-14px)] w-[calc((100%-22px)/3)] rounded-[12px] border',
-          'border-[var(--nav-indicator-border)] bg-[var(--nav-indicator)] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-[10px]',
+          'pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 rounded-button border',
+          'border-[var(--nav-indicator-border)] bg-[var(--nav-indicator)] shadow-[var(--highlight-inset)] backdrop-blur-[10px]',
           'transition-[transform,box-shadow,background-color] duration-[450ms] ease-[cubic-bezier(0.2,0.9,0.3,1.2)] motion-reduce:ease-out',
           'data-dragging:border-[var(--nav-indicator-border-drag)] data-dragging:bg-[var(--nav-indicator-drag)] data-dragging:duration-[60ms] data-dragging:ease-linear',
-          'data-dragging:shadow-[0_10px_24px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.4)]',
+          'data-dragging:shadow-[var(--nav-indicator-shadow-drag)]',
         )}
-        style={{ transform }}
+        style={{
+          width: `calc((100% - ${PADDING * 2}px - ${GAP * (TABS.length - 1)}px) / ${TABS.length})`,
+          transform,
+        }}
       />
       {TABS.map((tab, i) => {
         const Icon = TAB_ICONS[tab.id]
         return (
           <Link
             key={tab.id}
+            ref={(el) => {
+              tabRefs.current[i] = el
+            }}
             to={tab.to}
             draggable={false}
             aria-current={i === current ? 'page' : undefined}
             className={cn(
-              'relative z-10 flex flex-1 flex-col items-center justify-center gap-0.5 rounded-[12px] text-[11px] font-bold no-underline transition-colors',
+              'relative z-10 flex flex-1 flex-col items-center justify-center gap-0.5 rounded-button text-[11px] font-bold no-underline transition-colors',
               i === nearIndex
                 ? 'text-[var(--nav-on)] hover:text-[var(--nav-on)]'
                 : 'text-[var(--nav-off)] hover:text-[var(--nav-off)]',

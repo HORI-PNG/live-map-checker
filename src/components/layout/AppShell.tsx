@@ -17,9 +17,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SideNav />
       </div>
       {/* スマホは下部ナビ（高さ 64px＋上下の余白）の分だけ下を空ける */}
-      <div className="mx-auto flex min-h-dvh w-full max-w-[640px] flex-col pb-[calc(96px+env(safe-area-inset-bottom))] lg:mx-0 lg:min-h-0 lg:max-w-none lg:min-w-0 lg:flex-1 lg:pb-0">
+      <main className="mx-auto flex min-h-dvh w-full max-w-[640px] flex-col pb-[calc(96px+env(safe-area-inset-bottom))] lg:mx-0 lg:min-h-0 lg:max-w-none lg:min-w-0 lg:flex-1 lg:pb-0">
         {children}
-      </div>
+      </main>
       <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[640px] px-4 pb-[calc(16px+env(safe-area-inset-bottom))] lg:hidden">
         <TabBar />
       </div>

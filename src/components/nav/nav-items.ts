@@ -8,15 +8,16 @@ export const TABS = [
 
 /** URL から、いま選ばれているタブを決める（地図・地方・県・会場はすべて「マップ」） */
 export function activeTabIndex(pathname: string): number {
-  if (pathname === '/favorites' || pathname.startsWith('/favorites/')) return 1
-  if (pathname === '/account' || pathname.startsWith('/account/')) return 2
-  return 0
+  const index = TABS.findIndex((tab) => tab.to !== '/' && (pathname === tab.to || pathname.startsWith(`${tab.to}/`)))
+  return index === -1 ? 0 : index
 }
 
-/** 下部ナビのスライド: 指の位置（ナビ左端からの px）をインジケーターの位置に変換する */
+/**
+ * 下部ナビのスライド: 指の位置（最初のタブの左端からの px）を、インジケーターの位置に変換する。
+ * 指がインジケーターの中央に来るようにし、両端のタブで止める
+ */
 export function dragOffset(pointerX: number, tabWidth: number, stride: number, count: number): number {
-  const x = pointerX - 6 - 1 - tabWidth / 2 // ナビの padding 6px と枠線 1px、指はインジケーターの中央
-  return Math.max(0, Math.min(stride * (count - 1), x))
+  return Math.max(0, Math.min(stride * (count - 1), pointerX - tabWidth / 2))
 }
 
 /** インジケーターの位置から、一番近いタブの番号 */

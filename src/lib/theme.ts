@@ -20,7 +20,7 @@ export function resolveTheme(preference: ThemePreference, systemPrefersDark: boo
  * localStorage が使えない環境では初期値（ダーク）のまま。
  * 上の関数と同じ判定を文字列で持つため、tests/unit/theme.test.ts で実際に実行して一致を確かめている。
  */
-export const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem('${THEME_STORAGE_KEY}');if(p!=='system'&&p!=='light'&&p!=='dark')p='${DEFAULT_THEME}';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`
+export const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem('${THEME_STORAGE_KEY}');if(p!=='system'&&p!=='light'&&p!=='dark')p='${DEFAULT_THEME}';var d=p==='dark'||(p==='system'&&matchMedia('${SYSTEM_DARK_QUERY}').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`
 
 // --- 選んだテーマ（system / light / dark）の保存と反映 ---
 
