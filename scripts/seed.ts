@@ -10,7 +10,7 @@ const TARGETS = {
 } as const
 
 const target = process.argv[2] as keyof typeof TARGETS
-if (!(target in TARGETS)) {
+if (!Object.hasOwn(TARGETS, target)) {
   console.error('使い方: node scripts/seed.ts <local|staging|prod>')
   process.exit(1)
 }
