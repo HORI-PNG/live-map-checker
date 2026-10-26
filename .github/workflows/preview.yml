@@ -47,7 +47,7 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
       - name: Comment preview URL
         if: steps.upload.outputs.url != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PREVIEW_URL: ${{ steps.upload.outputs.url }}
         with:
