@@ -1,0 +1,33 @@
+/**
+ * Wrangler 設定: https://developers.cloudflare.com/workers/wrangler/configuration/
+ * 本番は最上位、PR プレビュー用は env.staging（バインディングと vars は継承されないので両方に書く）
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "live-map-checker",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "upload_source_maps": true,
+  "preview_urls": true,
+  // 会場サイトの自動取得のみ（AI 検索には使わない）
+  "triggers": { "crons": ["0 * * * *"] },
+  "vars": {
+    "APP_ENV": "production",
+    "AI_PROVIDER": "anthropic",
+    "AI_MODEL": "claude-sonnet-5-5",
+    "AI_DAILY_BUDGET_USD": "1.00"
+  },
+  "env": {
+    "staging": {
+      "triggers": { "crons": [] },
+      "vars": {
+        "APP_ENV": "staging",
+        "AI_PROVIDER": "mock",
+        "AI_MODEL": "mock",
+        "AI_DAILY_BUDGET_USD": "0"
+      }
+    }
+  }
+}

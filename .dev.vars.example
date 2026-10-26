@@ -1,0 +1,4 @@
+# ローカル開発用。このファイルを .dev.vars にコピーして使う（.dev.vars はコミットしない）
+# AI を実際に呼ぶときだけ設定する。通常は AI_PROVIDER=mock のままでよい
+AI_PROVIDER=mock
+ANTHROPIC_API_KEY=

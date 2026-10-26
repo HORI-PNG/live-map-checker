@@ -1,0 +1,179 @@
+@import url("https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* テーマは <html class="dark"> で切り替える（初期値はダーク。src/lib/theme.ts） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * デザイントークン（docs/mockup の値をそのまま使う）
+ * 既定はダーク。ライトは :root:not(.dark) で上書きする。
+ */
+:root {
+  /* ブランド（テーマ共通） */
+  --brand-accent: #39eac3;
+  --brand-main: #00c8bd;
+  --brand-teal: #00a7af;
+  --brand-deep: #118698;
+  --brand-slate: #2a667a;
+  --brand-ink: #2f4858;
+  --brand-ai: #8b7bd8;
+
+  /* ダーク */
+  --bg: #0e1a20;
+  --bg-glow:
+    radial-gradient(circle at 12% 6%, rgba(57, 234, 195, 0.3), transparent 40%),
+    radial-gradient(circle at 92% 38%, rgba(98, 82, 149, 0.38), transparent 45%),
+    radial-gradient(circle at 25% 96%, rgba(0, 167, 175, 0.26), transparent 45%);
+  --fg: #eaf4f2;
+  --fg-muted: #a9bec4;
+  --fg-subtle: #8fa3a9;
+  --link: #6ee7d0;
+  --link-hover: #b9f5e9;
+  --kicker: #6ee7d0;
+  --glass: rgba(255, 255, 255, 0.07);
+  --glass-soft: rgba(255, 255, 255, 0.06);
+  --glass-strong: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-strong: rgba(255, 255, 255, 0.18);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --tile-on: #0e1a20;
+  --ai-bg: rgba(139, 123, 216, 0.1);
+  --ai-border: rgba(139, 123, 216, 0.55);
+  --ai-badge-bg: rgba(139, 123, 216, 0.25);
+  --ai-badge-fg: #dcd6ff;
+
+  color-scheme: dark;
+}
+
+:root:not(.dark) {
+  --bg: #f6f3e8;
+  --bg-glow:
+    radial-gradient(circle at 12% 6%, rgba(57, 234, 195, 0.35), transparent 40%),
+    radial-gradient(circle at 92% 38%, rgba(98, 82, 149, 0.18), transparent 45%),
+    radial-gradient(circle at 25% 96%, rgba(0, 167, 175, 0.2), transparent 45%);
+  --fg: #1e3440;
+  --fg-muted: #4a5f6a;
+  --fg-subtle: #4a5f6a;
+  --link: #2a667a;
+  --link-hover: #118698;
+  --kicker: #2a667a;
+  --glass: rgba(255, 255, 255, 0.55);
+  --glass-soft: rgba(255, 255, 255, 0.45);
+  --glass-strong: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-border-strong: rgba(30, 52, 64, 0.1);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 8px 24px rgba(30, 52, 64, 0.08);
+  --ai-bg: rgba(98, 82, 149, 0.08);
+  --ai-border: rgba(98, 82, 149, 0.4);
+  --ai-badge-bg: rgba(98, 82, 149, 0.18);
+  --ai-badge-fg: #625295;
+
+  color-scheme: light;
+}
+
+/* shadcn/ui の部品が参照する変数を、上のトークンに対応づける */
+@theme inline {
+  --font-sans: "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+  --font-rounded: "M PLUS Rounded 1c", "Noto Sans JP", ui-sans-serif, sans-serif;
+
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-muted: var(--glass);
+  --color-muted-foreground: var(--fg-muted);
+  --color-card: var(--glass);
+  --color-card-foreground: var(--fg);
+  --color-popover: var(--bg);
+  --color-popover-foreground: var(--fg);
+  --color-primary: var(--brand-accent);
+  --color-primary-foreground: var(--tile-on);
+  --color-secondary: var(--glass-strong);
+  --color-secondary-foreground: var(--fg);
+  --color-accent: var(--glass-strong);
+  --color-accent-foreground: var(--fg);
+  --color-destructive: #ff8c8c;
+  --color-border: var(--glass-border);
+  --color-input: var(--glass-border-strong);
+  --color-ring: var(--brand-accent);
+
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-main: var(--brand-main);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-ai: var(--brand-ai);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-kicker: var(--kicker);
+}
+
+/*
+ * 角丸（要件定義書 8章: ヘッダー18 / カード16〜20 / ボタン10〜12 / バッジ8）
+ * shadcn/ui の部品が使う rounded-sm/md/lg/xl もこの値に合わせる。
+ * inline ではない @theme なので CSS 変数（--radius-card など）としても使える。
+ */
+@theme {
+  --radius-badge: 8px;
+  --radius-button: 12px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
+  --radius-header: 18px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+}
+
+@utility glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: var(--glass-inset);
+}
+
+/* glass に浮いている影を足したもの（ヘッダーなど） */
+@utility glass-raised {
+  @apply glass;
+  box-shadow: var(--glass-inset), var(--glass-shadow);
+}
+
+@utility kicker {
+  font-family: var(--font-rounded);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--kicker);
+}
+
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg-glow), var(--bg);
+    background-attachment: fixed;
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: var(--link);
+  }
+
+  a:hover {
+    color: var(--link-hover);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-rounded);
+  }
+}
