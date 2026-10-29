@@ -41,7 +41,17 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      # ブラウザは Playwright のバージョンごとにキャッシュする。ランナーには Chromium に必要な OS のライブラリが
+      # 入っているので --with-deps（apt での取得。たまに止まる）は使わない
+      - name: Get Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: pnpm exec playwright install chromium
+        timeout-minutes: 5
       # ローカルの D1（Miniflare）にマイグレーションとシードを入れる。Cloudflare には接続しない
       - run: pnpm db:setup:local
       - run: pnpm test:e2e
