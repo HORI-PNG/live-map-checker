@@ -86,3 +86,22 @@ export function ChevronLeftIcon(props: IconProps) {
 }
 
 export const TAB_ICONS = { map: MapIcon, fav: HeartIcon, account: UserIcon } as const
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <svg
+      width={props.size ?? 16}
+      height={props.size ?? 16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )
+}

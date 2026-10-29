@@ -70,25 +70,37 @@ export async function listRegionSummaries(db: Db): Promise<RegionSummary[]> {
     .orderBy(asc(regions.sortOrder))
 }
 
-/** 地方の画面用: その地方のすべての県（会場が無い県も「準備中」として含む）と会場一覧 */
+export type RegionDetail = { region: RegionSummary; prefectures: PrefectureWithVenues[] }
+
+/**
+ * 地方・県の画面用: その地方のすべての県（会場が無い県も「準備中」として含む）と会場一覧。
+ * 県の画面からは県の slug で、その県が属する地方をまとめて読む（D1 へは1往復）
+ */
 export async function getRegionDetail(
   db: Db,
-  regionSlug: string,
-): Promise<{ region: RegionSummary; prefectures: PrefectureWithVenues[] } | null> {
+  by: { regionSlug: string } | { prefectureSlug: string },
+): Promise<RegionDetail | null> {
+  const regionMatch =
+    'regionSlug' in by
+      ? eq(regions.slug, by.regionSlug)
+      : eq(
+          regions.id,
+          sql`(${db.select({ id: prefectures.regionId }).from(prefectures).where(eq(prefectures.slug, by.prefectureSlug))})`,
+        )
   const [regionRows, prefRows, venueRows] = await db.batch([
-    db.select().from(regions).where(eq(regions.slug, regionSlug)),
+    db.select().from(regions).where(regionMatch),
     db
       .select({ id: prefectures.id, slug: prefectures.slug, name: prefectures.name, shortName: prefectures.shortName })
       .from(prefectures)
       .innerJoin(regions, eq(regions.id, prefectures.regionId))
-      .where(eq(regions.slug, regionSlug))
+      .where(regionMatch)
       .orderBy(asc(prefectures.sortOrder)),
     db
       .select(venueListColumns)
       .from(venues)
       .innerJoin(prefectures, eq(prefectures.id, venues.prefectureId))
       .innerJoin(regions, eq(regions.id, prefectures.regionId))
-      .where(and(eq(regions.slug, regionSlug), eq(venues.isActive, true)))
+      .where(and(regionMatch, eq(venues.isActive, true)))
       .orderBy(asc(venues.sortOrder)),
   ])
   const region = regionRows[0]
@@ -103,30 +115,6 @@ export async function getRegionDetail(
       venueCount: venueRows.length,
     },
     prefectures: items,
-  }
-}
-
-/** 県の画面用: 県と、その県の会場一覧（パンくず用に地方も返す） */
-export async function getPrefectureDetail(db: Db, prefectureSlug: string) {
-  const [rows, venueRows] = await db.batch([
-    db
-      .select({ ...regionColumns, ...prefectureColumns })
-      .from(prefectures)
-      .innerJoin(regions, eq(regions.id, prefectures.regionId))
-      .where(eq(prefectures.slug, prefectureSlug)),
-    db
-      .select(venueListColumns)
-      .from(venues)
-      .innerJoin(prefectures, eq(prefectures.id, venues.prefectureId))
-      .where(and(eq(prefectures.slug, prefectureSlug), eq(venues.isActive, true)))
-      .orderBy(asc(venues.sortOrder)),
-  ])
-  const row = rows[0]
-  if (!row) return null
-  return {
-    region: pickRegion(row),
-    prefecture: { slug: row.prefectureSlug, name: row.prefectureName, shortName: row.prefectureShortName },
-    venues: venueRows.map(({ prefectureId: _, ...v }) => v),
   }
 }
 

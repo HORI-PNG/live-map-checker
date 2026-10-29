@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
 import { createDb } from '@/server/db/client'
 import { buildSeedStatements } from '@/server/db/seed/sql.ts'
-import { getPrefectureDetail, getRegionDetail, getVenueDetail, listRegionSummaries } from '@/server/repo/geo'
+import { getRegionDetail, getVenueDetail, listRegionSummaries } from '@/server/repo/geo'
 
 const db = createDb(env.DB)
 
@@ -27,7 +27,7 @@ describe('listRegionSummaries', () => {
 
 describe('getRegionDetail', () => {
   it('九州: 8県すべてを返し、福岡5会場（モックアップの順）と熊本1会場', async () => {
-    const detail = await getRegionDetail(db, 'kyushu')
+    const detail = await getRegionDetail(db, { regionSlug: 'kyushu' })
     expect(detail?.prefectures).toHaveLength(8)
     const fukuoka = detail?.prefectures.find((p) => p.slug === 'fukuoka')
     expect(fukuoka?.venues.map((v) => v.name)).toEqual([
@@ -42,15 +42,16 @@ describe('getRegionDetail', () => {
   })
 
   it('存在しない地方は null', async () => {
-    expect(await getRegionDetail(db, 'atlantis')).toBeNull()
+    expect(await getRegionDetail(db, { regionSlug: 'atlantis' })).toBeNull()
+    expect(await getRegionDetail(db, { prefectureSlug: 'atlantis' })).toBeNull()
   })
 })
 
-describe('getPrefectureDetail', () => {
-  it('大阪府: 地方（パンくず用）と4会場', async () => {
-    const detail = await getPrefectureDetail(db, 'osaka')
+describe('getRegionDetail（県の slug から）', () => {
+  it('大阪府から関西全体を読み、大阪府の4会場を含む', async () => {
+    const detail = await getRegionDetail(db, { prefectureSlug: 'osaka' })
     expect(detail?.region.slug).toBe('kansai')
-    expect(detail?.venues.map((v) => v.slug)).toEqual([
+    expect(detail?.prefectures.find((p) => p.slug === 'osaka')?.venues.map((v) => v.slug)).toEqual([
       'osaka-jo-hall',
       'kyocera-dome-osaka',
       'zepp-osaka-bayside',
