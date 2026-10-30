@@ -55,26 +55,27 @@
 - [x] 本番 D1 にマイグレーション 0001 が入ったことを確認
 - [x] Actions の「Scrape」を手動実行（target=prod）し、本番に Zepp の公演が入ることを確認
 
-## 7. PR 7 `feat/scraper-kumamoto-classify`（作業中）
+## 7. PR 7 `feat/scraper-kumamoto-classify`（#16 マージ）
 
 - [x] 熊本城ホールの robots.txt と規約を再確認し、`data.ts` の確認記録を更新
 - [x] 熊本城ホールの取得ルール（`/event/YYYYMM.html`、本物は `*.real.html`、fixture はダミー化）
 - [x] ライブ判定のルール（会場のラベル → 除外キーワード → ライブのキーワード → unknown、`classification_cache`、手動の上書き）
 - [x] 取得時に判定して `category` を入れる（Zepp に混ざるお笑い公演なども除外）
 - [x] テスト、`/code-review`（指摘9件を反映）、`/security-review`（脆弱性なし）
-- [ ] PR を作成 → CI → マージの許可 → マージ → 本番で「Scrape」を手動実行し熊本城ホールの公演とライブ判定を確認
+- [x] PR を作成 → CI → マージの許可 → マージ → 本番で「Scrape」を手動実行し熊本城ホールの公演とライブ判定を確認
 
-## 8. PR 8 `feat/ai-search`
+## 8. PR 8 `feat/ai-search`（作業中）
 
-- [ ] AI 提供元の抽象化（`AiProvider`）、Claude（Web 検索）、mock
-- [ ] 24時間キャッシュ、同じ会場の二重起動の防止、ローディング表示、予算超過・失敗時の表示
-- [ ] 出典の検証（SSRF 対策、URL 1件ずつ別の呼び出し、軽い文字列照合）
-- [ ] 日次上限 $1.00 の確認と費用の記録
-- [ ] 再検索したら、前回の AI の公演のうち出てこなかったものを無効にする
-- [ ] ページのキャッシュ（5分）と AI 結果の反映の兼ね合い
+- [x] AI 提供元の抽象化（`AiProvider`）、Claude（Web 検索）、mock
+- [x] 24時間キャッシュ、同じ会場の二重起動の防止、ローディング表示、予算超過・失敗時の表示
+- [x] 出典の検証（SSRF 対策、URL 1件ずつ別の呼び出し、軽い文字列照合）
+- [x] 日次上限 $1.00 の確認と費用の記録
+- [x] 再検索したら、前回の AI の公演のうち出てこなかったものを無効にする
+- [x] ページのキャッシュ（5分）と AI 結果の反映の兼ね合い
 - [ ] Anthropic の API キーを発行し、月額上限を設定、本番に `wrangler secret put`（ユーザーの作業）
 - [ ] モデル比較の実測（Haiku／Sonnet／Opus 5.5）→ モデルと日次上限を確定
-- [ ] CPU 計測、`/code-review`、`/security-review`、PR、マージ
+- [x] CPU 計測（検索の本体 5〜22ms、検証 8〜19ms／件）、`/code-review`（10件反映）、`/security-review`（脆弱性なし）
+- [ ] PR、マージ
 
 ## 9. PR 9 `feat/ai-classify`
 
