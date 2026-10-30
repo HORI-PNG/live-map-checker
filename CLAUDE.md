@@ -4,7 +4,8 @@
 
 - 要件: `docs/requirements.md`
 - 設計と実装計画（PR の順番もここ）: `docs/plan.md`
-- **進捗と残りのタスク（引き継ぎ）: `PROGRESS.md`** … 作業を始める前に読み、PR をマージしたら更新する
+- **行うべきこと（タスク一覧）: `PLAN.md`** … 作業を始める前に読み、終わったらチェックを付ける
+- **実行したこと（作業の記録）: `PROGRESS.md`** … PR をマージしたら追記する
 - 見た目の正解: `docs/mockup/*.dc.html`（色・余白・角丸・ガラス表現はここから読む。要件定義書と食い違ったらモックアップを優先）
 - 分野ごとの詳しいルールとハマりどころ: `.claude/rules/`（該当するファイルを触るときに読み込まれる）
 
@@ -44,14 +45,14 @@ TanStack Start（React, TypeScript）on Cloudflare Workers（無料プラン）/
 
 ## 進め方のルール
 
-- 1機能 = 1ブランチ = 1PR。ブランチは `feat/<機能>` / `chore/<作業>`。順番は `docs/plan.md` 10章（現在地は `PROGRESS.md`）。
+- 1機能 = 1ブランチ = 1PR。ブランチは `feat/<機能>` / `chore/<作業>`。順番と現在地は `PLAN.md`（設計の理由は `docs/plan.md`）。
 - コミットは Conventional Commits（本文は日本語でよい）。
 - PR を出す前に `pnpm check && pnpm test && pnpm test:e2e` を通し、`/code-review` を実行する。外部への通信・AI・管理ページ・CI/シークレットに触れる PR は `/security-review` も実行する。
 - **PR のマージは、毎回ユーザーの明示的な許可（「#N をマージして」）をもらってから行う。** 「進めて」だけでは許可とみなさない。許可をもらったらマージ後に本番デプロイの成功まで確認する。
 - **強制 push（`--force` / `--force-with-lease`）や履歴の書き換えはしない。** ブランチを最新にするときは main をマージする。
 - 積み重ねた PR（別の PR のブランチを base にしたもの）は、土台の PR をマージする前に向き先を main に変えておく。
 - マージ済みのブランチは削除する（`gh pr merge --delete-branch`）。
-- PR をマージしたら `PROGRESS.md` を更新する。
+- PR をマージしたら `PLAN.md` にチェックを付け、`PROGRESS.md` に記録する。
 
 ## ユーザーとのやりとり
 
