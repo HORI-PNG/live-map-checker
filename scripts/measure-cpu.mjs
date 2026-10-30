@@ -1,16 +1,15 @@
-// staging（PR プレビュー）の CPU 時間を測る（docs/plan.md 10.5）。
-// 使い方: node scripts/measure-cpu.mjs <プレビューの URL> [1ページあたりの回数（既定 10）]
+// staging の CPU 時間を測る（docs/plan.md 10.5）。
+// wrangler tail に流れるのは staging に「デプロイした」バージョンだけで、PR プレビュー（別名 URL）は流れない。
+// そのため、測りたいブランチを staging にデプロイしてから実行する:
+//   CLOUDFLARE_ENV=staging pnpm build && pnpm exec wrangler deploy && pnpm db:seed:staging
+//   node scripts/measure-cpu.mjs [staging の URL（既定は下）] [1ページあたりの回数（既定 10）]
 // - wrangler tail で staging Worker の実行ログ（cpuTime）を受け取りながら、各ページにアクセスする
 // - 「描画」: x-lmc-cache-bypass でキャッシュを外したとき（staging だけ受け付ける）
 // - 「キャッシュ」: キャッシュから返したとき（応答の x-lmc-cache が hit のものだけ。cf-ray で実行ログと照合する）
 import { spawn } from 'node:child_process'
 
-const base = process.argv[2]?.replace(/\/$/, '')
+const base = (process.argv[2] ?? 'https://live-map-checker-staging.horinouchi-yuki189.workers.dev').replace(/\/$/, '')
 const rounds = Number(process.argv[3] ?? 10)
-if (!base) {
-  console.error('使い方: node scripts/measure-cpu.mjs <プレビューの URL> [回数]')
-  process.exit(1)
-}
 
 const PATHS = ['/', '/regions/kyushu', '/prefectures/fukuoka', '/venues/marine-messe-fukuoka', '/venues/zepp-fukuoka']
 const LIMIT_MS = 10
