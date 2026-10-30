@@ -21,5 +21,7 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // AI は mock にする（wrangler.jsonc の本番用の値を上書きする。.dev.vars があるとそちらが優先されるので注意）
+    env: { CLOUDFLARE_INCLUDE_PROCESS_ENV: 'true', AI_PROVIDER: 'mock', AI_MODEL: 'mock', AI_DAILY_BUDGET_USD: '1' },
   },
 })

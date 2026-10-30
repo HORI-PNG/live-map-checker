@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { z } from 'zod'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ChevronRightIcon } from '@/components/nav/icons'
+import { AiSearchStatus, useAiSearch } from '@/components/venue/AiSearchStatus'
 import { EventList } from '@/components/venue/EventList'
 import { ModeToggle } from '@/components/venue/ModeToggle'
 import { fetchVenue } from '@/server/functions/geo'
@@ -19,8 +20,9 @@ export const Route = createFileRoute('/venues/$venue')({
 
 // 会場画面（Venue.dc.html / DeskVenue.dc.html）。スマホは縦1列、PC は左に会場情報、右にカードを複数列
 function VenuePage() {
-  const { region, prefecture, venue, otherVenues, events } = Route.useLoaderData()
+  const { region, prefecture, venue, otherVenues, events, ai } = Route.useLoaderData()
   const mode = Route.useSearch().mode ?? 'all'
+  const { searching, failed } = useAiSearch(venue.slug, ai)
   return (
     <>
       <PageHeader
@@ -87,13 +89,12 @@ function VenuePage() {
               </span>
             </p>
           </div>
-          <div className="px-4 pb-6 lg:px-0">
+          <div className="flex flex-col gap-3.5 px-4 pb-6 lg:px-0">
             {mode === 'all' ? (
-              events.length > 0 ? (
-                <EventList events={events} />
-              ) : (
-                <EmptyState />
-              )
+              <>
+                <AiSearchStatus ai={ai} searching={searching} failed={failed} />
+                {events.length > 0 ? <EventList events={events} /> : !searching && <EmptyState />}
+              </>
             ) : (
               <FavoritesPlaceholder />
             )}

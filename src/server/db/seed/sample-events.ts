@@ -118,5 +118,30 @@ export function buildSampleEventStatements(today: string = todayJst()): string[]
     const category = s.category ?? 'live'
     return `INSERT INTO events (venue_id, source_kind, title, artist_name, tour_name, date, open_time, start_time, detail_url, source_url, source_label, category, classified_by, fingerprint) VALUES ((SELECT id FROM venues WHERE slug = ${q(s.venue)}), ${q(kind)}, ${q(s.title)}, ${q(s.artist)}, ${q(s.tour)}, ${q(date)}, ${q(s.open)}, ${q(s.start)}, 'https://example.com/event/${i + 1}', ${q(s.ai?.sourceUrl)}, ${q(s.ai?.sourceLabel)}, ${q(category)}, 'rule', ${q(fingerprint)}) ON CONFLICT(fingerprint) DO UPDATE SET source_kind = excluded.source_kind, title = excluded.title, artist_name = excluded.artist_name, tour_name = excluded.tour_name, date = excluded.date, open_time = excluded.open_time, start_time = excluded.start_time, detail_url = excluded.detail_url, source_url = excluded.source_url, source_label = excluded.source_label, category = excluded.category, is_active = 1;`
   })
-  return [cleanup, ...upserts]
+  return [cleanup, ...upserts, ...aiStateStatements()]
+}
+
+const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+
+/**
+ * AI 検索の状態をそろえる（E2E が毎回同じ画面になるように）。
+ * - AI の検索結果（mock）と検索の記録を消す
+ * - サンプル公演を置いた AI の会場は「24時間以内に検索済み」にする（開いても AI 検索が走らない）
+ * - 自動取得の会場は「取得に成功している」ことにする（AI で補う対象にしない）。staging の本物の記録は上書きしない
+ * それ以外の AI の会場（みずほPayPayドームなど）は、開くと AI 検索（mock）が走る
+ */
+function aiStateStatements(): string[] {
+  const aiVenuesWithSamples = [...new Set(SAMPLES.map((s) => s.venue))]
+  return [
+    'UPDATE events SET ai_search_id = NULL WHERE ai_search_id IS NOT NULL;',
+    "DELETE FROM events WHERE source_kind = 'ai' AND fingerprint NOT LIKE 'sample:%';",
+    'DELETE FROM ai_verifications;',
+    'DELETE FROM ai_searches;',
+    `INSERT INTO ai_searches (venue_id, status, provider, model, started_at, finished_at, expires_at)
+      SELECT id, 'succeeded', 'sample', 'sample', ${NOW}, ${NOW}, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+30 days')
+      FROM venues WHERE fetch_mode = 'ai_only' AND slug IN (${aiVenuesWithSamples.map(q).join(', ')});`,
+    `INSERT INTO venue_fetch_state (venue_id, last_attempt_at, last_success_at, consecutive_failures)
+      SELECT id, ${NOW}, ${NOW}, 0 FROM venues WHERE fetch_mode = 'scrape'
+      ON CONFLICT(venue_id) DO NOTHING;`,
+  ]
 }

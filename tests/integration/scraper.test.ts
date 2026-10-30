@@ -207,6 +207,36 @@ describe('runScrapeTick', () => {
     expect(rows[0]).toEqual({ active: 20, total: 21 })
   })
 
+  it('取得できた月は、取得の障害中に AI で補った公演を無効にする', async () => {
+    await env.DB.prepare(
+      `INSERT INTO events (venue_id, source_kind, title, date, category, fingerprint, is_active)
+       VALUES ((SELECT id FROM venues WHERE slug = 'zepp-fukuoka'), 'ai', 'AI で補った公演', '2026-11-20', 'live', 'test:ai-1', 1),
+              ((SELECT id FROM venues WHERE slug = 'zepp-fukuoka'), 'ai', 'AI で補った来月の公演', '2026-12-05', 'live', 'test:ai-2', 1)`,
+    ).run()
+    try {
+      const fetcher = fakeFetch({
+        '/robots.txt': () => new Response(ROBOTS_OK),
+        schedule: () => new Response(zeppHtml),
+      })
+      // 順番待ちの最初は Zepp Fukuoka の 11 月（ほかのテストと同じ）
+      expect(await runScrapeTick(db, env.DB, fetcher, { now: NOW })).toMatchObject({
+        status: 'success',
+        venue: 'zepp-fukuoka',
+        pageKey: '2026-11',
+      })
+      const rows = await query<{ fingerprint: string; is_active: number }>(
+        "SELECT fingerprint, is_active FROM events WHERE fingerprint LIKE 'test:ai-%' ORDER BY fingerprint",
+      )
+      // 取得した 11 月は無効、まだ取っていない 12 月は残す
+      expect(rows).toEqual([
+        { fingerprint: 'test:ai-1', is_active: 0 },
+        { fingerprint: 'test:ai-2', is_active: 1 },
+      ])
+    } finally {
+      await env.DB.prepare("DELETE FROM events WHERE fingerprint LIKE 'test:ai-%'").run()
+    }
+  })
+
   it('robots.txt で禁止されていたら取得せず、skipped(robots) として記録する', async () => {
     const fetcher = fakeFetch({
       '/robots.txt': () => new Response('User-agent: *\nDisallow: /hall/\n'),
