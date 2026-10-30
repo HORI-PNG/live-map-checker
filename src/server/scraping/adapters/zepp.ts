@@ -48,7 +48,8 @@ export const zeppAdapter: ScraperAdapter = {
     let rewriter = new HTMLRewriter().on('a.sch-content', {
       element(el) {
         current = {
-          url: el.getAttribute('href') ?? '',
+          // 属性の値も文字参照（&amp; など）のままなので戻す
+          url: decodeEntities(el.getAttribute('href') ?? ''),
           year: '',
           monthDay: '',
           performer: '',
@@ -57,6 +58,10 @@ export const zeppAdapter: ScraperAdapter = {
           start: '',
         }
         rows.push(current)
+        // 公演のリンクの外にある同じ名前の要素（おすすめ欄など）を、最後の公演に混ぜない
+        el.onEndTag(() => {
+          current = null
+        })
       },
     })
     for (const [selector, key] of Object.entries(FIELDS)) {

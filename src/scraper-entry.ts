@@ -7,6 +7,10 @@ import { runScrapeTick } from './server/scraping/runner'
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
+    // scripts/scrape.mjs が、起動したのが自分のサーバーで、意図した D1 につながっているかを確かめる
+    if (request.method === 'GET' && url.pathname === '/health') {
+      return Response.json({ target: (env as Env & { SCRAPER_TARGET?: string }).SCRAPER_TARGET ?? null })
+    }
     if (request.method !== 'POST' || url.pathname !== '/tick') return new Response('Not Found', { status: 404 })
     const result = await runScrapeTick(createDb(env.DB), env.DB, fetch, {
       syncPages: url.searchParams.get('sync') === '1',

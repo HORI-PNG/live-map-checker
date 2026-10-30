@@ -83,7 +83,10 @@ describe('runScrapeTick', () => {
       "SELECT count(*) AS n FROM events WHERE source_kind = 'scrape' AND is_active = 1 AND date LIKE '2026-11-%' AND fingerprint NOT LIKE 'sample:%'",
     )
     expect(saved[0].n).toBe(21)
-    const runs = await query<{ status: string; events_found: number }>('SELECT status, events_found FROM fetch_runs')
+    // 熊本城ホールの取得ルールは未登録なので「設定エラー」も記録されるが、ここでは取得した1件だけを見る
+    const runs = await query<{ status: string; events_found: number }>(
+      "SELECT status, events_found FROM fetch_runs WHERE message NOT LIKE '設定エラー%'",
+    )
     expect(runs).toEqual([{ status: 'success', events_found: 21 }])
     const state = await query<{ consecutive_failures: number; last_success_at: string | null }>(
       'SELECT consecutive_failures, last_success_at FROM venue_fetch_state',
@@ -107,8 +110,9 @@ describe('runScrapeTick', () => {
   it('取り直すと、掲載が無くなった公演は無効になり、同じ公演は重複しない', async () => {
     const first = fakeFetch({ '/robots.txt': () => new Response(ROBOTS_OK), schedule: () => new Response(zeppHtml) })
     await runScrapeTick(db, env.DB, first, { now: NOW })
-    // 1件目の公演を消したページ
-    const fewer = zeppHtml.replace(/<a class="sch-content [^"]*"[\s\S]*?<\/a>/, '')
+    // これからの公演（11/29）を消したページ
+    const fewer = zeppHtml.replace(/<a class="sch-content [^"]*"(?:(?!<\/a>)[\s\S])*?__month">11\.29<[\s\S]*?<\/a>/, '')
+    expect(fewer).not.toBe(zeppHtml)
     const second = fakeFetch({ '/robots.txt': () => new Response(ROBOTS_OK), schedule: () => new Response(fewer) })
     await env.DB.prepare("UPDATE fetch_pages SET last_fetched_at = '2026-11-01T00:00:00Z'").run()
     await runScrapeTick(db, env.DB, second, { now: new Date(NOW.getTime() + 21 * 3600_000) })
@@ -168,5 +172,76 @@ describe('runScrapeTick', () => {
       "SELECT count(*) AS n FROM events WHERE source_kind = 'scrape' AND is_active = 1 AND fingerprint NOT LIKE 'sample:%'",
     )
     expect(active[0].n).toBe(21)
+  })
+
+  it('月ごとのページが1つ成功しても、失敗中のページが残っていれば会場は回復扱いにしない', async () => {
+    // 11月のページだけ毎回 503、ほかの月は成功
+    const fetcher = fakeFetch({
+      '/robots.txt': () => new Response(ROBOTS_OK),
+      '_m=11': () => new Response('', { status: 503 }),
+      schedule: () => new Response('<html><body><div class="sch-contentWrap"></div></body></html>'),
+    })
+    for (let i = 0; i < 6; i++) {
+      await runScrapeTick(db, env.DB, fetcher, { now: new Date(NOW.getTime() + i * 600_000) })
+    }
+    const state = await query<{
+      consecutive_failures: number
+      last_success_at: string | null
+      last_error_kind: string
+    }>(
+      "SELECT s.consecutive_failures, s.last_success_at, s.last_error_kind FROM venue_fetch_state s JOIN venues v ON v.id = s.venue_id WHERE v.slug = 'zepp-fukuoka'",
+    )
+    expect(state[0].consecutive_failures).toBeGreaterThanOrEqual(1)
+    expect(state[0].last_success_at).toBeNull()
+    expect(state[0].last_error_kind).toBe('http')
+  })
+
+  it('別の月のページが返ってきたら、解析エラーとして記録し、その月の公演を消さない', async () => {
+    const fetcher = fakeFetch({ '/robots.txt': () => new Response(ROBOTS_OK), schedule: () => new Response(zeppHtml) })
+    await runScrapeTick(db, env.DB, fetcher, { now: NOW }) // 2026-11 は成功
+    // 2026-12 のページに 11 月の内容が返ってくる
+    const result = await runScrapeTick(db, env.DB, fetcher, { now: new Date(NOW.getTime() + 600_000) })
+    expect(result).toMatchObject({ status: 'failed', pageKey: '2026-12', errorKind: 'parse' })
+  })
+
+  it('今日より前の公演は、ページから消えても無効にしない', async () => {
+    const fetcher = fakeFetch({ '/robots.txt': () => new Response(ROBOTS_OK), schedule: () => new Response(zeppHtml) })
+    await runScrapeTick(db, env.DB, fetcher, { now: NOW })
+    // 11/20 に取り直すと、11/1〜11/19 の公演がページから消えている
+    const later = zeppHtml.replace(/<a class="sch-content [^"]*"[\s\S]*?<\/a>/g, (block) =>
+      /__month">11\.(\d+)</.exec(block) && Number(/__month">11\.(\d+)</.exec(block)?.[1]) < 20 ? '' : block,
+    )
+    await env.DB.prepare("UPDATE fetch_pages SET last_fetched_at = '2026-11-01T00:00:00Z'").run()
+    await runScrapeTick(
+      db,
+      env.DB,
+      fakeFetch({ '/robots.txt': () => new Response(ROBOTS_OK), schedule: () => new Response(later) }),
+      {
+        now: new Date('2026-11-20T03:00:00Z'),
+      },
+    )
+    const past = await query<{ n: number }>(
+      "SELECT count(*) AS n FROM events WHERE source_kind = 'scrape' AND is_active = 1 AND date < '2026-11-20' AND fingerprint NOT LIKE 'sample:%'",
+    )
+    expect(past[0].n).toBeGreaterThan(0)
+  })
+
+  it('1会場の設定ミスがあっても、ほかの会場は取得し、設定エラーを記録する', async () => {
+    await env.DB.prepare("UPDATE venues SET scraper_config = NULL WHERE slug = 'zepp-fukuoka'").run()
+    try {
+      const fetcher = fakeFetch({
+        '/robots.txt': () => new Response(ROBOTS_OK),
+        schedule: () => new Response(zeppHtml),
+      })
+      const result = await runScrapeTick(db, env.DB, fetcher, { now: NOW, syncPages: true })
+      expect(result.status).not.toBe('idle')
+      expect(result).not.toMatchObject({ venue: 'zepp-fukuoka' })
+      const runs = await query<{ slug: string }>(
+        "SELECT v.slug FROM fetch_runs r JOIN venues v ON v.id = r.venue_id WHERE r.message LIKE '設定エラー%'",
+      )
+      expect(runs.map((r) => r.slug)).toContain('zepp-fukuoka')
+    } finally {
+      await env.DB.prepare(`UPDATE venues SET scraper_config = '{"hall":"fukuoka"}' WHERE slug = 'zepp-fukuoka'`).run()
+    }
   })
 })

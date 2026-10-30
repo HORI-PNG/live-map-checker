@@ -45,7 +45,8 @@ export function isAllowedByRobots(body: string | null, pathWithQuery: string, ag
   if (!body) return true
   const groups = parseGroups(body)
   const ua = agent.toLowerCase()
-  const own = groups.filter((g) => g.agents.some((a) => a !== '*' && ua.includes(a)))
+  // 自分向けのグループは、製品名（User-agent の値）が完全に一致するものだけ（RFC 9309。部分一致は使わない）
+  const own = groups.filter((g) => g.agents.some((a) => a !== '*' && a !== '' && a === ua))
   const chosen = own.length > 0 ? own : groups.filter((g) => g.agents.includes('*'))
   let best: Rule | null = null
   for (const rule of chosen.flatMap((g) => g.rules)) {

@@ -8,6 +8,8 @@
   "main": "src/scraper-entry.ts",
   "compatibility_date": "2026-10-19",
   "compatibility_flags": ["nodejs_compat"],
+  // scripts/scrape.mjs が、つないだ D1 を起動後に確かめるための名前
+  "vars": { "SCRAPER_TARGET": "prod" },
   "d1_databases": [
     {
       "binding": "DB",
@@ -18,6 +20,7 @@
   ],
   "env": {
     "staging": {
+      "vars": { "SCRAPER_TARGET": "staging" },
       "d1_databases": [
         {
           "binding": "DB",

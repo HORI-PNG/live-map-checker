@@ -81,15 +81,25 @@ export async function runScrapeTick(
     }
     const html = await fetchText(fetcher, candidate.url)
     httpStatus = 200
-    const parsed = await adapter.parse(html, { pageUrl: candidate.url, pageKey: candidate.pageKey })
-    found = parsed.events.length
-    if (parsed.invalid > 0 && parsed.invalid >= found) {
-      throw new FetchError('parse', `解析できない行が ${parsed.invalid} 件（正常 ${found} 件）`)
+    let parsed: Awaited<ReturnType<typeof adapter.parse>>
+    try {
+      parsed = await adapter.parse(html, { pageUrl: candidate.url, pageKey: candidate.pageKey })
+    } catch (error) {
+      throw new FetchError('parse', `解析中にエラー: ${String(error)}`, 200)
     }
+    if (parsed.invalid > 0 && parsed.invalid >= parsed.events.length) {
+      throw new FetchError('parse', `解析できない行が ${parsed.invalid} 件（正常 ${parsed.events.length} 件）`, 200)
+    }
+    // 件数の確認と保存は、そのページの月の公演だけで行う（別の月のページが返ってきたときに気づけるように）
+    const inMonth = parsed.events.filter((e) => e.date.startsWith(candidate.pageKey))
+    if (parsed.events.length > 0 && inMonth.length === 0) {
+      throw new FetchError('parse', `${candidate.pageKey} の公演が1件もありません（別の月のページの可能性）`, 200)
+    }
+    found = inMonth.length
     const previous = candidate.lastEventsFound ?? 0
-    if (found === 0 && previous >= 3) throw new FetchError('empty', `前回 ${previous} 件 → 0 件`)
-    if (previous >= 5 && found < previous * 0.2) throw new FetchError('drop', `前回 ${previous} 件 → ${found} 件`)
-    live = eventWrites(db, d1, candidate.venueId, candidate.pageKey, parsed.events, nowIso, writes, rawWrites)
+    if (found === 0 && previous >= 3) throw new FetchError('empty', `前回 ${previous} 件 → 0 件`, 200)
+    if (previous >= 5 && found < previous * 0.2) throw new FetchError('drop', `前回 ${previous} 件 → ${found} 件`, 200)
+    live = eventWrites(db, d1, candidate.venueId, candidate.pageKey, inMonth, today, nowIso, writes, rawWrites)
     result = { status: 'success', venue: candidate.venueSlug, pageKey: candidate.pageKey, eventsFound: found }
   } catch (error) {
     const e = error instanceof FetchError ? error : new FetchError('network', String(error))
@@ -129,6 +139,8 @@ export async function runScrapeTick(
         lastEventsFound: ok ? found : candidate.lastEventsFound,
       })
       .where(eq(fetchPages.id, candidate.pageId)),
+    // 会場の状態は、その会場の全ページの結果から決める（月ごとのページが1つ成功しただけで回復扱いにしない）。
+    // 上の fetch_pages の更新のあとに同じ batch の中で実行されるので、今回の結果も含めて数えられる
     db
       .insert(venueFetchState)
       .values({
@@ -144,10 +156,11 @@ export async function runScrapeTick(
         set: ok
           ? {
               lastAttemptAt: nowIso,
-              lastSuccessAt: nowIso,
-              consecutiveFailures: 0,
-              lastErrorKind: null,
-              lastEventsFound: found,
+              // 失敗中のページが残っていれば、その数を失敗回数として残す
+              consecutiveFailures: failingPagesOf(candidate.venueId),
+              lastSuccessAt: sql`CASE WHEN ${failingPagesOf(candidate.venueId)} = 0 THEN ${nowIso} ELSE ${venueFetchState.lastSuccessAt} END`,
+              lastErrorKind: sql`CASE WHEN ${failingPagesOf(candidate.venueId)} = 0 THEN NULL ELSE ${venueFetchState.lastErrorKind} END`,
+              lastEventsFound: sql`(SELECT coalesce(sum(${fetchPages.lastEventsFound}), 0) FROM ${fetchPages} WHERE ${fetchPages.venueId} = ${candidate.venueId})`,
             }
           : {
               lastAttemptAt: nowIso,
@@ -159,6 +172,11 @@ export async function runScrapeTick(
   ]
   await d1.batch([...logWrites.map((w) => toPrepared(d1, w)), ...rawWrites])
   return result
+}
+
+/** その会場のページのうち、最後の取得が失敗・見送りだったページの数 */
+function failingPagesOf(venueId: number) {
+  return sql<number>`(SELECT count(*) FROM ${fetchPages} WHERE ${fetchPages.venueId} = ${venueId} AND ${fetchPages.lastStatus} IN ('failed', 'skipped'))`
 }
 
 /** drizzle で組み立てた文を、D1 の準備済みの文に変換する（準備済みの文と同じ batch に入れるため） */
@@ -206,11 +224,25 @@ async function syncPages(db: Db, today: string) {
     .select({ id: venues.id, scraperKey: venues.scraperKey, config: venues.scraperConfig })
     .from(venues)
     .where(and(eq(venues.fetchMode, 'scrape'), eq(venues.isActive, true)))
+  const broken: BatchItem<'sqlite'>[] = []
   const rows = targets.flatMap((v) => {
     const adapter = SCRAPERS.get(v.scraperKey ?? '')
-    return adapter
-      ? adapter.pages(v.config ?? null, today).map((p) => ({ venueId: v.id, pageKey: p.key, url: p.url }))
-      : []
+    try {
+      if (!adapter) throw new Error(`取得ルール ${v.scraperKey} が登録されていません`)
+      return adapter.pages(v.config ?? null, today).map((p) => ({ venueId: v.id, pageKey: p.key, url: p.url }))
+    } catch (error) {
+      // 1会場の設定ミスで、ほかの会場の取得を止めない。その会場は失敗として記録する
+      broken.push(
+        db.insert(fetchRuns).values({
+          venueId: v.id,
+          trigger: 'cron',
+          status: 'failed',
+          errorKind: 'parse',
+          message: `設定エラー: ${String(error)}`.slice(0, 500),
+        }),
+      )
+      return []
+    }
   })
   const thisMonth = today.slice(0, 7)
   const statements: BatchItem<'sqlite'>[] = []
@@ -222,7 +254,7 @@ async function syncPages(db: Db, today: string) {
         .onConflictDoNothing(),
     )
   }
-  await db.batch([db.delete(fetchPages).where(lt(fetchPages.pageKey, thisMonth)), ...statements])
+  await db.batch([db.delete(fetchPages).where(lt(fetchPages.pageKey, thisMonth)), ...statements, ...broken])
 }
 
 /** robots.txt の中身（無ければ null）。1日以上たっていれば取り直し、保存する文を writes に足す */
@@ -284,11 +316,12 @@ async function fetchText(fetcher: Fetcher, url: string): Promise<string> {
 }
 
 /**
- * 重複を防ぐ鍵: 会場・日付・正規化したタイトルのハッシュ（FNV-1a を2本で 64 ビット相当）。
+ * 重複を防ぐ鍵: 会場・日付・開演時刻・正規化したタイトルのハッシュ（FNV-1a を2本で 64 ビット相当）。
  * 重複判定に使うだけなので暗号用のハッシュは使わない（1件ずつの非同期処理で CPU 時間がかかるため）
  */
-export function fingerprintOf(venueId: number, date: string, title: string): string {
-  const text = `${venueId}|${date}|${normalizeText(title)}`
+export function fingerprintOf(venueId: number, date: string, startTime: string | null, title: string): string {
+  // 開演時刻も含める（同じ日に同じタイトルの昼の部・夜の部があるため）
+  const text = `${venueId}|${date}|${startTime ?? ''}|${normalizeText(title)}`
   let a = 0x811c9dc5
   let b = 0x01000193 ^ 0x9e3779b9
   for (let i = 0; i < text.length; i++) {
@@ -318,11 +351,12 @@ function eventWrites(
   venueId: number,
   pageKey: string,
   raw: RawEvent[],
+  today: string,
   nowIso: string,
   writes: BatchItem<'sqlite'>[],
   rawWrites: D1PreparedStatement[],
 ): number {
-  // そのページの月の公演だけを対象にする（前後の月が混ざっていても、ほかのページの公演を消さない）
+  // raw はそのページの月の公演だけ（呼び出し側で絞り込み済み）
   const seen = new Set<string>()
   // 先に無効にしてから、今回見えた公演を有効に戻す（同じ書き込みの中で行うので、途中の状態は見えない）
   writes.push(
@@ -333,7 +367,8 @@ function eventWrites(
         and(
           eq(events.venueId, venueId),
           eq(events.sourceKind, 'scrape'),
-          gte(events.date, `${pageKey}-01`),
+          // 今日より前の公演は、ページから消えても（終わった公演の掲載終了）無効にしない
+          gte(events.date, `${pageKey}-01` > today ? `${pageKey}-01` : today),
           lt(events.date, `${addMonths(pageKey, 1)}-01`),
           lt(events.lastSeenAt, nowIso),
         ),
@@ -341,8 +376,7 @@ function eventWrites(
   )
   const upsert = d1.prepare(UPSERT_EVENT_SQL)
   for (const e of raw) {
-    if (!e.date.startsWith(pageKey)) continue
-    const fingerprint = fingerprintOf(venueId, e.date, e.title)
+    const fingerprint = fingerprintOf(venueId, e.date, e.startTime, e.title)
     if (seen.has(fingerprint)) continue
     seen.add(fingerprint)
     rawWrites.push(
