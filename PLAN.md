@@ -81,7 +81,7 @@
 
 - [x] 判定できなかったタイトル（unknown）の AI 分類とキャッシュ（会場を開いたときに最大40件、`classification_cache` に保存）
 - [x] 記録は `ai_searches.kind='classify'`（マイグレーション 0002）、日次上限は検索と共通
-- [x] `/code-review`（8件反映、tool_choice の強制は Sonnet/Opus 5.5 で 400 になるため見送り）、`/security-review`
+- [x] `/code-review`（8件反映、tool_choice の強制は Sonnet/Opus 5.5 で 400 になるため見送り）、`/security-review`（脆弱性なし）
 - [ ] PR、マージ
 
 ## 10. PR 10 `feat/favorites`
@@ -105,7 +105,7 @@
 ## 13. PR 13 `chore/release-polish`
 
 - [ ] 出現アニメ（prefers-reduced-motion 対応）
-- [ ] アクセシビリティと表示速度の確認、全体の `/security-review`
+- [ ] アクセシビリティと表示速度の確認、全体の `/security-review`（脆弱性なし）
 - [ ] 本番データ（取得・AI）の確認、v1 公開
 
 ## そのほか
