@@ -61,7 +61,8 @@
 - [x] 熊本城ホールの取得ルール（`/event/YYYYMM.html`、本物は `*.real.html`、fixture はダミー化）
 - [x] ライブ判定のルール（会場のラベル → 除外キーワード → ライブのキーワード → unknown、`classification_cache`、手動の上書き）
 - [x] 取得時に判定して `category` を入れる（Zepp に混ざるお笑い公演なども除外）
-- [ ] テスト、`/code-review`、PR、マージ
+- [x] テスト、`/code-review`（指摘9件を反映）、`/security-review`（脆弱性なし）
+- [ ] PR を作成 → CI → マージの許可 → マージ → 本番で「Scrape」を手動実行し熊本城ホールの公演とライブ判定を確認
 
 ## 8. PR 8 `feat/ai-search`
 
