@@ -43,7 +43,7 @@
 - [x] 会場画面（ライブ一覧・月ごと・表示切り替え・AI バッジ・出典リンク）
 - [x] 表示用ページのキャッシュ（Cache API）と CPU 計測スクリプト
 
-## 6. PR 6 `feat/scraper-zepp`（#15）
+## 6. PR 6 `feat/scraper-zepp`（#15 マージ）
 
 - [x] 取得の仕組み（順番待ち・robots.txt・取得ログ・失敗の検知・重複防止）
 - [x] Zepp 3会場の取得ルール
@@ -51,16 +51,16 @@
 - [x] `/code-review`（指摘を反映）、`/security-review`（高信頼度の脆弱性なし）
 - [x] 取得した `detailUrl` を http/https に限る（`src/server/scraping/types.ts` の `rawEventSchema`。できれば取得元と同じホストに）
 - [x] PR を作成（#15。base: main。本文に CPU 実測と GitHub Actions に移した理由）
-- [ ] CI を確認 → ユーザーにマージの許可をもらう → マージ
-- [ ] 本番 D1 にマイグレーション 0001 が入ったことを確認
-- [ ] Actions の「Scrape」を手動実行（target=prod）し、本番に Zepp の公演が入ることを確認
+- [x] CI を確認 → ユーザーにマージの許可をもらう → マージ
+- [x] 本番 D1 にマイグレーション 0001 が入ったことを確認
+- [x] Actions の「Scrape」を手動実行（target=prod）し、本番に Zepp の公演が入ることを確認
 
-## 7. PR 7 `feat/scraper-kumamoto-classify`
+## 7. PR 7 `feat/scraper-kumamoto-classify`（作業中）
 
-- [ ] 熊本城ホールの robots.txt と規約を再確認し、`data.ts` の確認記録を更新
-- [ ] 熊本城ホールの取得ルール（`/event/YYYYMM.html`、本物は `*.real.html`、fixture はダミー化）
-- [ ] ライブ判定のルール（会場のラベル → 除外キーワード → ライブのキーワード → unknown、`classification_cache`、手動の上書き）
-- [ ] 取得時に判定して `category` を入れる（Zepp に混ざるお笑い公演なども除外）
+- [x] 熊本城ホールの robots.txt と規約を再確認し、`data.ts` の確認記録を更新
+- [x] 熊本城ホールの取得ルール（`/event/YYYYMM.html`、本物は `*.real.html`、fixture はダミー化）
+- [x] ライブ判定のルール（会場のラベル → 除外キーワード → ライブのキーワード → unknown、`classification_cache`、手動の上書き）
+- [x] 取得時に判定して `category` を入れる（Zepp に混ざるお笑い公演なども除外）
 - [ ] テスト、`/code-review`、PR、マージ
 
 ## 8. PR 8 `feat/ai-search`
@@ -105,7 +105,7 @@
 
 ## そのほか
 
-- [ ] Dependabot の PR を確認して取り込む（#13 actions/cache 4→6、#14 マイナー更新3件）
+- [ ] Dependabot の PR を確認して取り込む（#13 actions/cache 4→6 はマージ済み、#14 マイナー更新3件）
 - [ ] マリンメッセ福岡・福岡国際センターの規約確認（取得ルールは v1.1 以降）
 - [ ] みずほPayPayドーム・大阪城ホールへの問い合わせ（任意。承諾が取れたら取得ルールを追加）
 - [ ] v1 公開後: メジャー更新（TypeScript 7・Vitest 5・@types/node 26）を計画して上げる
