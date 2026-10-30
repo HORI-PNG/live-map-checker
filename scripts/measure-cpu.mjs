@@ -1,7 +1,8 @@
 // staging（PR プレビュー）の CPU 時間を測る（docs/plan.md 10.5）。
 // 使い方: node scripts/measure-cpu.mjs <プレビューの URL> [1ページあたりの回数（既定 10）]
 // - wrangler tail で staging Worker の実行ログ（cpuTime）を受け取りながら、各ページにアクセスする
-// - 「描画」: 毎回違うクエリを付けてキャッシュを外したとき。「キャッシュ」: 同じ URL を繰り返したとき
+// - 「描画」: x-lmc-cache-bypass でキャッシュを外したとき（staging だけ受け付ける）
+// - 「キャッシュ」: キャッシュから返したとき（応答の x-lmc-cache が hit のものだけ。cf-ray で実行ログと照合する）
 import { spawn } from 'node:child_process'
 
 const base = process.argv[2]?.replace(/\/$/, '')
@@ -54,10 +55,22 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 console.log('wrangler tail に接続しています…')
 await sleep(12_000)
 
+/** cf-ray（先頭の16進）→ 表の行の名前 */
+const labels = new Map()
+async function request(path, bypass) {
+  const res = await fetch(`${base}${path}`, { headers: bypass ? { 'x-lmc-cache-bypass': '1' } : {} })
+  await res.arrayBuffer()
+  const ray = res.headers.get('cf-ray')?.split('-')[0]
+  const cache = res.headers.get('x-lmc-cache')
+  if (ray)
+    labels.set(ray, `${path} ${cache === 'hit' ? 'キャッシュ' : cache === 'bypass' ? '描画' : `その他(${cache})`}`)
+}
+
 for (const path of PATHS) {
+  await request(path, false) // キャッシュを温める
   for (let i = 0; i < rounds; i++) {
-    await fetch(`${base}${path}?__cpu=${Date.now()}-${i}`) // 描画（キャッシュを外す）
-    await fetch(`${base}${path}`) // キャッシュ（2回目以降は当たる）
+    await request(path, true)
+    await request(path, false)
   }
 }
 await sleep(10_000)
@@ -65,11 +78,8 @@ tail.kill()
 
 const groups = new Map()
 for (const e of events) {
-  const url = e.event?.request?.url
-  if (!url || typeof e.cpuTime !== 'number') continue
-  const u = new URL(url)
-  if (!PATHS.includes(u.pathname) && !u.pathname.startsWith('/_serverFn/')) continue
-  const label = `${u.pathname.startsWith('/_serverFn/') ? '(サーバー関数)' : u.pathname} ${u.searchParams.has('__cpu') ? '描画' : 'キャッシュ'}`
+  const label = labels.get(e.event?.request?.headers?.['cf-ray'])
+  if (!label || typeof e.cpuTime !== 'number') continue
   groups.set(label, [...(groups.get(label) ?? []), e.cpuTime])
 }
 

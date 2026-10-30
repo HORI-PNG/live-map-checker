@@ -106,12 +106,17 @@ const SAMPLES: Sample[] = [
 const q = (v: string | null | undefined) =>
   v === null || v === undefined || v === '' ? 'NULL' : `'${v.replaceAll("'", "''")}'`
 
-/** 1要素 = 1文。fingerprint で冪等（流し直すと日付が今日基準に更新される） */
+/** 1要素 = 1文。fingerprint（会場とタイトル）で冪等。流し直すと、日付を含むすべての項目を最新にする */
 export function buildSampleEventStatements(today: string = todayJst()): string[] {
-  return SAMPLES.map((s, i) => {
+  const fingerprintOf = (s: Sample) => `sample:${s.venue}:${s.title}`
+  // 一覧から外した・鍵の形を変えたサンプルは消す（本物の公演の fingerprint は 'sample:' で始まらない）
+  const cleanup = `DELETE FROM events WHERE fingerprint LIKE 'sample:%' AND fingerprint NOT IN (${SAMPLES.map((s) => q(fingerprintOf(s))).join(', ')});`
+  const upserts = SAMPLES.map((s, i) => {
+    const fingerprint = fingerprintOf(s)
     const date = addDays(today, s.inDays)
     const kind = s.ai ? 'ai' : 'scrape'
     const category = s.category ?? 'live'
-    return `INSERT INTO events (venue_id, source_kind, title, artist_name, tour_name, date, open_time, start_time, detail_url, source_url, source_label, category, classified_by, fingerprint) VALUES ((SELECT id FROM venues WHERE slug = ${q(s.venue)}), ${q(kind)}, ${q(s.title)}, ${q(s.artist)}, ${q(s.tour)}, ${q(date)}, ${q(s.open)}, ${q(s.start)}, 'https://example.com/event/${i + 1}', ${q(s.ai?.sourceUrl)}, ${q(s.ai?.sourceLabel)}, ${q(category)}, 'rule', 'sample:${i + 1}') ON CONFLICT(fingerprint) DO UPDATE SET date = excluded.date, is_active = 1;`
+    return `INSERT INTO events (venue_id, source_kind, title, artist_name, tour_name, date, open_time, start_time, detail_url, source_url, source_label, category, classified_by, fingerprint) VALUES ((SELECT id FROM venues WHERE slug = ${q(s.venue)}), ${q(kind)}, ${q(s.title)}, ${q(s.artist)}, ${q(s.tour)}, ${q(date)}, ${q(s.open)}, ${q(s.start)}, 'https://example.com/event/${i + 1}', ${q(s.ai?.sourceUrl)}, ${q(s.ai?.sourceLabel)}, ${q(category)}, 'rule', ${q(fingerprint)}) ON CONFLICT(fingerprint) DO UPDATE SET source_kind = excluded.source_kind, title = excluded.title, artist_name = excluded.artist_name, tour_name = excluded.tour_name, date = excluded.date, open_time = excluded.open_time, start_time = excluded.start_time, detail_url = excluded.detail_url, source_url = excluded.source_url, source_label = excluded.source_label, category = excluded.category, is_active = 1;`
   })
+  return [cleanup, ...upserts]
 }
