@@ -43,6 +43,11 @@
   --ai-border: rgba(139, 123, 216, 0.55);
   --ai-badge-bg: rgba(139, 123, 216, 0.25);
   --ai-badge-fg: #dcd6ff;
+  /* 公演カード（Venue.dc.html） */
+  --date-box: rgba(255, 255, 255, 0.08);
+  --fav-badge-bg: rgba(57, 234, 195, 0.16);
+  --fav-badge-border: rgba(57, 234, 195, 0.45);
+  --fav-badge-fg: #b9f5e9;
   /* 下部ナビ・左ナビ（TabBar.dc.html / SideNav.dc.html） */
   --nav-on: #39eac3;
   --nav-off: #a9bec4;
@@ -85,8 +90,12 @@
   --glass-shadow: 0 8px 24px rgba(30, 52, 64, 0.08);
   --ai-bg: rgba(98, 82, 149, 0.08);
   --ai-border: rgba(98, 82, 149, 0.4);
-  --ai-badge-bg: rgba(98, 82, 149, 0.18);
-  --ai-badge-fg: #625295;
+  --ai-badge-bg: #625295;
+  --ai-badge-fg: #ffffff;
+  --date-box: rgba(30, 52, 64, 0.06);
+  --fav-badge-bg: rgba(57, 234, 195, 0.3);
+  --fav-badge-border: rgba(0, 167, 175, 0.45);
+  --fav-badge-fg: #1e3440;
   --nav-on: #1e3440;
   --nav-off: #4a5f6a;
   --nav-indicator: rgba(57, 234, 195, 0.35);

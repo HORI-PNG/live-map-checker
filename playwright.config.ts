@@ -4,6 +4,8 @@ const PORT = 3000
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  // サンプル公演の日付は「流した日」からの相対なので、毎回流し直して今日基準にそろえる
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

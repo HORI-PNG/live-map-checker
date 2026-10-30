@@ -1,9 +1,9 @@
 // 地方・県・会場の読み出し（地図と会場一覧の画面で使う）
 // 1画面の読み出しは db.batch で1往復にまとめる（D1 へのクエリ回数を抑える）
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, gte, lte, or, sql } from 'drizzle-orm'
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
 import type { Db } from '../db/client'
-import { prefectures, regions, venues } from '../db/schema'
+import { events, prefectures, regions, venues } from '../db/schema'
 
 const activeVenueCount = sql<number>`count(${venues.id})`.mapWith(Number)
 
@@ -118,10 +118,31 @@ export async function getRegionDetail(
   }
 }
 
-/** 会場の画面用: 会場と、パンくず・「同じ県のほかの会場」に使う情報 */
-export async function getVenueDetail(db: Db, venueSlug: string) {
+export type VenueEvent = {
+  id: number
+  sourceKind: 'scrape' | 'ai'
+  artistName: string | null
+  artistNorm: string | null
+  title: string
+  tourName: string | null
+  date: string
+  openTime: string | null
+  startTime: string | null
+  detailUrl: string | null
+  sourceUrl: string | null
+  sourceLabel: string | null
+}
+
+/** 何日先までの公演を表示するか */
+export const EVENT_WINDOW_DAYS = 180
+
+/**
+ * 会場の画面用: 会場、パンくず・「同じ県のほかの会場」に使う情報、これからの公演（日付順）。
+ * 表示する公演: ライブと判定したもの。判定待ち（unknown）はライブハウス型の会場だけ表示する（docs/plan.md 5章）
+ */
+export async function getVenueDetail(db: Db, venueSlug: string, range: { from: string; to: string }) {
   const siblingPrefecture = db.select({ id: venues.prefectureId }).from(venues).where(eq(venues.slug, venueSlug))
-  const [rows, siblingRows] = await db.batch([
+  const [rows, siblingRows, eventRows] = await db.batch([
     db
       .select({
         ...regionColumns,
@@ -141,6 +162,33 @@ export async function getVenueDetail(db: Db, venueSlug: string) {
       .from(venues)
       .where(and(eq(venues.prefectureId, sql`(${siblingPrefecture})`), eq(venues.isActive, true)))
       .orderBy(asc(venues.sortOrder)),
+    db
+      .select({
+        id: events.id,
+        sourceKind: events.sourceKind,
+        artistName: events.artistName,
+        artistNorm: events.artistNorm,
+        title: events.title,
+        tourName: events.tourName,
+        date: events.date,
+        openTime: events.openTime,
+        startTime: events.startTime,
+        detailUrl: events.detailUrl,
+        sourceUrl: events.sourceUrl,
+        sourceLabel: events.sourceLabel,
+      })
+      .from(events)
+      .innerJoin(venues, eq(venues.id, events.venueId))
+      .where(
+        and(
+          eq(venues.slug, venueSlug),
+          eq(events.isActive, true),
+          gte(events.date, range.from),
+          lte(events.date, range.to),
+          or(eq(events.category, 'live'), and(eq(events.category, 'unknown'), eq(venues.venueKind, 'music_hall'))),
+        ),
+      )
+      .orderBy(asc(events.date), asc(events.startTime), asc(events.id)),
   ])
   const row = rows[0]
   if (!row) return null
@@ -155,5 +203,6 @@ export async function getVenueDetail(db: Db, venueSlug: string) {
       fetchMode: row.fetchMode,
     },
     otherVenues: siblingRows.filter((v) => v.slug !== venueSlug).map(({ prefectureId: _, ...v }) => v),
+    events: eventRows satisfies VenueEvent[],
   }
 }

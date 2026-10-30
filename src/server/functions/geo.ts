@@ -2,8 +2,9 @@
 import { notFound } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
+import { addDays, todayJst } from '@/shared/dates'
 import { getDb } from '../db/client'
-import { getRegionDetail, getVenueDetail, listRegionSummaries } from '../repo/geo'
+import { EVENT_WINDOW_DAYS, getRegionDetail, getVenueDetail, listRegionSummaries } from '../repo/geo'
 
 // URL から来る値。形が違うもの（大文字・記号など）はエラーではなく「見つからない」として扱う
 const slugInput = z.object({ slug: z.string().max(100) })
@@ -39,11 +40,15 @@ export const fetchPrefecture = createServerFn()
     return { ...detail, prefecture }
   })
 
-/** 会場: 会場の情報（ライブ一覧は feat/venue-page で追加する） */
+/** 会場: 会場の情報と、今日から半年先までのライブ */
 export const fetchVenue = createServerFn()
   .validator(slugInput)
   .handler(async ({ data }) => {
-    const venue = await getVenueDetail(getDb(), requireSlug(data.slug))
+    const today = todayJst()
+    const venue = await getVenueDetail(getDb(), requireSlug(data.slug), {
+      from: today,
+      to: addDays(today, EVENT_WINDOW_DAYS),
+    })
     if (!venue) throw notFound()
     return venue
   })

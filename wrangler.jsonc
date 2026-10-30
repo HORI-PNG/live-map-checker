@@ -19,6 +19,8 @@
     "AI_MODEL": "claude-sonnet-5-5",
     "AI_DAILY_BUDGET_USD": "1.00"
   },
+  // デプロイのバージョン。ページのキャッシュの鍵に含め、デプロイ直後に古い HTML を返さないようにする
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   // マイグレーションは drizzle-kit generate で作り、wrangler d1 migrations apply で適用する
   "d1_databases": [
     {
@@ -31,6 +33,7 @@
   "env": {
     "staging": {
       "triggers": { "crons": [] },
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "d1_databases": [
         {
           "binding": "DB",
