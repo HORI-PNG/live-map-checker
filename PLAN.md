@@ -43,14 +43,14 @@
 - [x] 会場画面（ライブ一覧・月ごと・表示切り替え・AI バッジ・出典リンク）
 - [x] 表示用ページのキャッシュ（Cache API）と CPU 計測スクリプト
 
-## 6. PR 6 `feat/scraper-zepp`（作業中）
+## 6. PR 6 `feat/scraper-zepp`（#15）
 
 - [x] 取得の仕組み（順番待ち・robots.txt・取得ログ・失敗の検知・重複防止）
 - [x] Zepp 3会場の取得ルール
 - [x] 取得を GitHub Actions で動かす（Cloudflare の Cron では CPU 10ms に収まらなかったため）
 - [x] `/code-review`（指摘を反映）、`/security-review`（高信頼度の脆弱性なし）
 - [x] 取得した `detailUrl` を http/https に限る（`src/server/scraping/types.ts` の `rawEventSchema`。できれば取得元と同じホストに）
-- [ ] PR を作成（base: main。本文に CPU 実測と GitHub Actions に移した理由）
+- [x] PR を作成（#15。base: main。本文に CPU 実測と GitHub Actions に移した理由）
 - [ ] CI を確認 → ユーザーにマージの許可をもらう → マージ
 - [ ] 本番 D1 にマイグレーション 0001 が入ったことを確認
 - [ ] Actions の「Scrape」を手動実行（target=prod）し、本番に Zepp の公演が入ることを確認
