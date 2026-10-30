@@ -1,6 +1,7 @@
 // シードを D1 に流し込む: node scripts/seed.ts <local|staging|prod>
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
+import { buildSampleEventStatements } from '../src/server/db/seed/sample-events.ts'
 import { buildSeedStatements } from '../src/server/db/seed/sql.ts'
 
 const TARGETS = {
@@ -17,6 +18,8 @@ if (!Object.hasOwn(TARGETS, target)) {
 
 mkdirSync('.wrangler', { recursive: true })
 const file = '.wrangler/seed.sql'
-writeFileSync(file, `${buildSeedStatements().join('\n')}\n`)
+// サンプル公演は開発とプレビューだけ（本番には入れない）
+const statements = [...buildSeedStatements(), ...(target === 'prod' ? [] : buildSampleEventStatements())]
+writeFileSync(file, `${statements.join('\n')}\n`)
 const [db, ...flags] = TARGETS[target]
 execFileSync('pnpm', ['exec', 'wrangler', 'd1', 'execute', db, ...flags, '--file', file, '--yes'], { stdio: 'inherit' })

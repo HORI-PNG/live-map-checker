@@ -5,6 +5,7 @@ import { buildSeedStatements } from '@/server/db/seed/sql.ts'
 import { getRegionDetail, getVenueDetail, listRegionSummaries } from '@/server/repo/geo'
 
 const db = createDb(env.DB)
+const RANGE = { from: '2026-11-01', to: '2027-04-30' }
 
 describe('listRegionSummaries', () => {
   it('8地方を並び順どおりに返し、九州6会場・関西4会場、ほかは0（準備中）', async () => {
@@ -62,7 +63,7 @@ describe('getRegionDetail（県の slug から）', () => {
 
 describe('getVenueDetail', () => {
   it('会場・県・地方と、同じ県のほかの会場（自分を除く）', async () => {
-    const detail = await getVenueDetail(db, 'marine-messe-fukuoka')
+    const detail = await getVenueDetail(db, 'marine-messe-fukuoka', RANGE)
     expect(detail?.venue).toMatchObject({ name: 'マリンメッセ福岡', area: '福岡市博多区', fetchMode: 'ai_only' })
     expect(detail?.prefecture.name).toBe('福岡県')
     expect(detail?.region.displayName).toBe('九州・沖縄')
@@ -73,11 +74,45 @@ describe('getVenueDetail', () => {
   it('無効にした会場は返さない', async () => {
     await env.DB.prepare("UPDATE venues SET is_active = 0 WHERE slug = 'zepp-namba'").run()
     try {
-      expect(await getVenueDetail(db, 'zepp-namba')).toBeNull()
+      expect(await getVenueDetail(db, 'zepp-namba', RANGE)).toBeNull()
       expect((await listRegionSummaries(db)).find((r) => r.slug === 'kansai')?.venueCount).toBe(3)
     } finally {
       await env.DB.prepare("UPDATE venues SET is_active = 1 WHERE slug = 'zepp-namba'").run()
     }
+  })
+})
+
+describe('getVenueDetail の公演', () => {
+  it('これからのライブだけを日付順に返す（学会と終わった公演は出さない）', async () => {
+    const detail = await getVenueDetail(db, 'marine-messe-fukuoka', RANGE)
+    expect(detail?.events.map((e) => e.artistName)).toEqual([
+      'アーティスト A',
+      'アーティスト B',
+      'アーティスト C',
+      'アーティスト D',
+      'アーティスト E',
+    ])
+    expect(detail?.events.map((e) => e.date)).toEqual([
+      '2026-11-09',
+      '2026-11-16',
+      '2026-11-24',
+      '2026-11-30',
+      '2026-12-11',
+    ])
+    expect(detail?.events.find((e) => e.artistName === 'アーティスト C')).toMatchObject({
+      sourceKind: 'ai',
+      sourceLabel: 'example.com',
+    })
+  })
+
+  it('判定待ち（unknown）はライブハウス型の会場（Zepp）では表示する', async () => {
+    const detail = await getVenueDetail(db, 'zepp-fukuoka', RANGE)
+    expect(detail?.events.map((e) => e.artistName)).toEqual(['アーティスト F', 'アーティスト G'])
+  })
+
+  it('期間の外は出さない', async () => {
+    const detail = await getVenueDetail(db, 'marine-messe-fukuoka', { from: '2026-11-01', to: '2026-11-20' })
+    expect(detail?.events).toHaveLength(2)
   })
 })
 

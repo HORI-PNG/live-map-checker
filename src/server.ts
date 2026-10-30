@@ -1,9 +1,11 @@
 import handler from '@tanstack/react-start/server-entry'
+import { cachedFetch } from './server/cache'
 
-// HTTP は TanStack Start に任せ、Cron（scheduled）だけを自前で処理する
+// HTTP は TanStack Start に任せ、Cron（scheduled）だけを自前で処理する。
+// 表示用の GET はキャッシュから返して、描画の CPU 時間を節約する（無料プランの 10ms に収めるため）
 export default {
-  fetch(request) {
-    return handler.fetch(request)
+  fetch(request, _env, ctx) {
+    return cachedFetch(request, ctx, () => handler.fetch(request))
   },
 
   async scheduled(controller, _env, _ctx) {
