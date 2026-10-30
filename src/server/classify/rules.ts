@@ -9,6 +9,13 @@ const LABEL_NON_LIVE = /スポーツ|展示|会議|学会|講演|式典|演劇|�
 const LABEL_LIVE = /コンサート|ライブ|音楽|concert|live|music/
 
 /**
+ * 英単語。前後が英字でなければ一致（\b だと「TOUR2026」のように数字が続く書き方を見落とす。「Clive」には一致させない）
+ */
+function word(pattern: string): string {
+  return `(?<![a-z])(?:${pattern})(?![a-z])`
+}
+
+/**
  * ライブではない催し。ライブの言葉より先に見る（「全国漫才ツアー」はツアーでもお笑い）。
  * 「フェアウェル」「博多」のように一部だけ一致する言葉は除く。
  * 「vs」「大会」は音楽でも使う（「A vs. B」の対バン、「バンド決定戦大会」）ので入れない（決まらなければ AI の分類へ）
@@ -19,7 +26,7 @@ const NON_LIVE = new RegExp(
     '総会',
     '展示会',
     '見本市',
-    '\\bexpo\\b',
+    word('expo'),
     '博覧会',
     'フェア(?!ウェル|リー)',
     '説明会',
@@ -48,14 +55,23 @@ const NON_LIVE = new RegExp(
     '献血',
     '漫才',
     'お笑い',
-    'コント',
+    'コント(?!ラバス|ラスト|ロール|ラクト|ゥア)',
     '落語',
     '新喜劇',
     '寄席',
     '講談',
     'ミュージカル',
     '演劇',
+    '劇団',
+    '朗読',
+    '舞台',
+    'バレエ',
     '歌舞伎',
+    '狂言',
+    '能楽',
+    'マジック',
+    'イリュージョン',
+    'サーカス',
     'トーク(?:ショー|イベント)',
     '上映会',
     '(?:握手|サイン|特典)会',
@@ -65,20 +81,20 @@ const NON_LIVE = new RegExp(
 /** 音楽のライブ。「フェスティバル」は健康・食などの催しにも使われるので「フェス」単独だけ */
 const LIVE = new RegExp(
   [
-    '\\blive\\b',
+    word('live'),
     'ライブ',
-    '\\btours?\\b',
+    word('tours?'),
     'ツアー',
     'コンサート',
-    '\\bconcert',
+    word('concerts?'),
     'ワンマン',
-    '\\bone-?man\\b',
+    word('one-?man'),
     '公演',
     'リサイタル',
-    '\\brecital\\b',
-    '\\bgigs?\\b',
+    word('recitals?'),
+    word('gigs?'),
     'フェス(?!ティバル)',
-    '\\bfes\\b',
+    word('fes'),
     '(?:rock|music|jazz) festival',
     '音楽祭',
     'ディナーショー',
@@ -87,12 +103,12 @@ const LIVE = new RegExp(
     '演奏会',
     '弾き語り',
     'アコースティック',
-    '\\bacoustic\\b',
-    '\\bshowcase\\b',
+    word('acoustic'),
+    word('showcase'),
   ].join('|'),
 )
 
-/** 全角英数を半角に、英字を小文字に（空白は残す。\b で英単語の区切りを見るため） */
+/** 全角英数を半角に、英字を小文字に（空白は残す。英単語の区切りを見るため） */
 function prepare(text: string): string {
   return text.normalize('NFKC').toLowerCase()
 }

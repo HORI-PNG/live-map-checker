@@ -49,6 +49,53 @@ describe('熊本城ホールの取得ルール', () => {
   })
 })
 
+describe('熊本城ホールの取得ルール（公演名の書き方）', () => {
+  /** 熊本城ホールのページと同じ形で、公演名（h4 の中身）だけ変えたページ */
+  const page = (...titles: string[]) =>
+    `<div id="event_list"><div class="event"><div class="list">${titles
+      .map(
+        (ttl, i) => `<div class="item"><div class="top"><div class="detail">
+          <time class="date">2026年11月${i + 1}日(日)</time><h4 class="ttl">${ttl}</h4>
+          </div></div><div class="bottom"><dl><dt>開演時間</dt><dd>開場 17:00 / 開演 18:00</dd></dl></div></div>`,
+      )
+      .join('')}</div></div></div>`
+  const parse = (...titles: string[]) =>
+    kumamotoJoHallAdapter.parse(page(...titles), {
+      pageUrl: 'https://www.kumamoto-jo-hall.jp/event/202611.html',
+      pageKey: '2026-11',
+    })
+
+  it('【延期公演】【延期振替公演】は載せ、印は公演名から外す。印が名前と同じ行でも中止・延期は載せない', async () => {
+    const { events } = await parse(
+      '【延期公演】<br>ARTIST A<br>LIVE TOUR 2026',
+      '【延期振替公演】ARTIST B<br>LIVE 2026',
+      'ARTIST C【公演中止】<br>LIVE TOUR 2026',
+      '【中止】ARTIST D<br>TOUR 2026',
+    )
+    expect(events.map((e) => [e.date, e.title, e.artistName])).toEqual([
+      ['2026-11-01', 'ARTIST A LIVE TOUR 2026', 'ARTIST A'],
+      ['2026-11-02', 'ARTIST B LIVE 2026', 'ARTIST B'],
+    ])
+  })
+
+  it('改行は <br> のところだけ。名前の中の span などでは分けない', async () => {
+    const { events } = await parse('ARTIST <span>D</span><br/>LIVE TOUR', 'Clive Band<br>\n\t\tdummy 2026')
+    expect(events[0]).toMatchObject({ artistName: 'ARTIST D', tourName: 'LIVE TOUR' })
+    expect(events[1]).toMatchObject({ artistName: 'Clive Band', tourName: 'dummy 2026' })
+  })
+
+  it('display:block の span は別の行。公演名より前のものは冠として公演名に含め、アーティスト名は次の行から取る', async () => {
+    const { events } = await parse(
+      '<span style="font-size:0.8em; display:block;">ダミー復興支援</span>ARTIST E<br>SPECIAL 2026<span style="display:block;">ARTIST E vs. ARTIST F<br>ゲスト G</span>',
+    )
+    expect(events[0]).toMatchObject({
+      title: 'ダミー復興支援 ARTIST E SPECIAL 2026 ARTIST E vs. ARTIST F ゲスト G',
+      artistName: 'ARTIST E',
+      tourName: 'SPECIAL 2026 ARTIST E vs. ARTIST F ゲスト G',
+    })
+  })
+})
+
 describe('Zepp の取得ルール', () => {
   it('今月から6か月分のページ', () => {
     const pages = zeppAdapter.pages({ hall: 'fukuoka' }, '2026-11-10')
@@ -315,6 +362,33 @@ describe('runScrapeTick', () => {
     for (const key of ['2026-12', '2027-01', '2027-02', '2027-03', '2027-04']) {
       expect(byKey[key]).toMatchObject({ status: 'success', eventsFound: 0 })
     }
+  })
+
+  it('熊本城ホール: 前回は公演があった来月のページが無くなったら、失敗として記録し公演を消さない', async () => {
+    await onlyKumamoto()
+    const robots = { '/robots.txt': () => new Response('', { status: 404 }) }
+    const decemberHtml = kumamotoHtml.replaceAll('2026年11月', '2026年12月')
+    await env.DB.prepare("UPDATE fetch_pages SET last_fetched_at = ?1 WHERE page_key <> '2026-12'")
+      .bind(NOW.toISOString())
+      .run()
+    expect(
+      await runScrapeTick(db, env.DB, fakeFetch({ ...robots, '202612': () => new Response(decemberHtml) }), {
+        now: NOW,
+      }),
+    ).toMatchObject({ status: 'success', pageKey: '2026-12', eventsFound: 5 })
+
+    await env.DB.prepare(
+      "UPDATE fetch_pages SET last_fetched_at = '2026-11-01T00:00:00Z' WHERE page_key = '2026-12'",
+    ).run()
+    expect(
+      await runScrapeTick(db, env.DB, fakeFetch(robots), { now: new Date(NOW.getTime() + 21 * 3600_000) }),
+    ).toMatchObject({ status: 'failed', pageKey: '2026-12', errorKind: 'http' })
+    const active = await query<{ n: number }>(
+      "SELECT count(*) AS n FROM events WHERE source_kind = 'scrape' AND is_active = 1 AND date LIKE '2026-12-%' AND fingerprint NOT LIKE 'sample:%'",
+    )
+    expect(active[0].n).toBe(5)
+    const runs = await query<{ http_status: number }>("SELECT http_status FROM fetch_runs WHERE status = 'failed'")
+    expect(runs).toEqual([{ http_status: 404 }])
   })
 
   it('熊本城ホール: 取得した公演をライブ判定して保存する（漫才・健康フェスティバルは表示しない）', async () => {

@@ -16,6 +16,10 @@ describe('ライブ判定のルール', () => {
       '「From AG! with Love 〜ライブハウスより愛を込めて〜」',
       'ＬＩＶＥ ２０２６',
       'ダミー交響楽団 定期演奏会',
+      'ARTIST ARENA TOUR2026',
+      'ダミー LIVE2026',
+      'コントラバス・リサイタル',
+      'ダミー LIVE ～コントラスト～',
     ]) {
       expect(category(title), title).toBe('live')
     }
@@ -34,6 +38,10 @@ describe('ライブ判定のルール', () => {
       '令和８年度 熊本市民 健康フェスティバル',
       'ダミー ミュージカル ツアー公演',
       'ダミー 握手会',
+      'ダミーコントライブ',
+      'ダミーバレエ団 くるみ割り人形 公演',
+      '劇団ダミー 第10回公演',
+      '朗読劇 公演',
     ]) {
       expect(category(title), title).toBe('non_live')
     }
@@ -45,6 +53,7 @@ describe('ライブ判定のルール', () => {
     expect(category('ダミー フェスティバル in 博多')).toBe('unknown')
     expect(category('Delivery Night')).toBe('unknown')
     expect(category('versus')).toBe('unknown')
+    expect(category('Clive Olive')).toBe('unknown')
     // 「vs」は対バンにも使うので、それだけでは除外しない
     expect(category('アーティスト A スペシャル アーティスト B vs. アーティスト C')).toBe('unknown')
   })

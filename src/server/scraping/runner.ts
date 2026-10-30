@@ -86,12 +86,14 @@ export async function runScrapeTick(
       html = await fetchText(fetcher, candidate.url)
       httpStatus = 200
     } catch (error) {
-      // 予定が入るまで月のページを作らない会場。今月のページが無いのは構造の変化を疑って失敗にする
+      // 予定が入るまで月のページを作らない会場。今月のページが無いのと、前回は公演があったのに
+      // ページが無くなったのは、構造の変化や障害を疑って失敗にする
       const notYet =
         error instanceof FetchError &&
         error.httpStatus === 404 &&
         adapter.futureNotFoundIsEmpty &&
-        candidate.pageKey > today.slice(0, 7)
+        candidate.pageKey > today.slice(0, 7) &&
+        (candidate.lastEventsFound ?? 0) === 0
       if (!notYet) throw error
       html = null
       httpStatus = 404
@@ -112,8 +114,10 @@ export async function runScrapeTick(
     }
     found = inMonth.length
     const previous = candidate.lastEventsFound ?? 0
-    if (found === 0 && previous >= 3) throw new FetchError('empty', `前回 ${previous} 件 → 0 件`, 200)
-    if (previous >= 5 && found < previous * 0.2) throw new FetchError('drop', `前回 ${previous} 件 → ${found} 件`, 200)
+    if (found === 0 && previous >= 3) throw new FetchError('empty', `前回 ${previous} 件 → 0 件`, httpStatus)
+    if (previous >= 5 && found < previous * 0.2) {
+      throw new FetchError('drop', `前回 ${previous} 件 → ${found} 件`, httpStatus)
+    }
     live = eventWrites(db, d1, candidate.venueId, candidate.pageKey, inMonth, today, nowIso, writes, rawWrites)
     result = { status: 'success', venue: candidate.venueSlug, pageKey: candidate.pageKey, eventsFound: found }
   } catch (error) {
