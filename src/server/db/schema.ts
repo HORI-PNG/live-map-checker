@@ -205,6 +205,36 @@ export const venueFetchState = sqliteTable('venue_fetch_state', {
   lastEventsFound: integer('last_events_found'),
 })
 
+/**
+ * 取得するページの順番待ち（会場×月）。Cron は1回の起動で、最後に取ってから一番時間がたったページを
+ * 1つだけ取得する（無料プランの CPU 10ms に収めるため。docs/plan.md 3.2）
+ */
+export const fetchPages = sqliteTable(
+  'fetch_pages',
+  {
+    id: integer('id').primaryKey(),
+    venueId: integer('venue_id')
+      .notNull()
+      .references(() => venues.id),
+    /** 取得ルールが決める、ページを表す鍵（例: '2026-11'） */
+    pageKey: text('page_key').notNull(),
+    url: text('url').notNull(),
+    lastFetchedAt: text('last_fetched_at'),
+    lastStatus: text('last_status', { enum: FETCH_RUN_STATUSES }),
+    lastEventsFound: integer('last_events_found'),
+  },
+  (t) => [uniqueIndex('fetch_pages_venue_page_idx').on(t.venueId, t.pageKey)],
+)
+
+/** robots.txt の保存（ホストごとに1日1回取り直す） */
+export const robotsCache = sqliteTable('robots_cache', {
+  host: text('host').primaryKey(),
+  fetchedAt: text('fetched_at').notNull(),
+  /** 取得できなかった（404 など）ときは null。null は「制限なし」として扱う */
+  body: text('body'),
+  httpStatus: integer('http_status'),
+})
+
 export type Region = typeof regions.$inferSelect
 export type Prefecture = typeof prefectures.$inferSelect
 export type Venue = typeof venues.$inferSelect

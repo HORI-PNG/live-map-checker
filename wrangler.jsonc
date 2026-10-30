@@ -11,8 +11,8 @@
   "observability": { "enabled": true },
   "upload_source_maps": true,
   "preview_urls": true,
-  // 会場サイトの自動取得のみ（AI 検索には使わない）
-  "triggers": { "crons": ["0 * * * *"] },
+  // Cron は使わない（会場サイトの自動取得は GitHub Actions で行う。.github/workflows/scrape.yml）
+  "triggers": { "crons": [] },
   "vars": {
     "APP_ENV": "production",
     "AI_PROVIDER": "anthropic",
