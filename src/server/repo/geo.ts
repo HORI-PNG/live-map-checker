@@ -1,6 +1,7 @@
 // 地方・県・会場の読み出し（地図と会場一覧の画面で使う）
 // 1画面の読み出しは db.batch で1往復にまとめる（D1 へのクエリ回数を抑える）
 import { and, asc, eq, gte, lte, or, sql } from 'drizzle-orm'
+import { type AiView, aiStateQueries, aiView, needsAi } from '../ai/state'
 import { aliased as as } from '../db/alias'
 import type { Db } from '../db/client'
 import { events, prefectures, regions, venues } from '../db/schema'
@@ -134,9 +135,15 @@ export const EVENT_WINDOW_DAYS = 180
  * 会場の画面用: 会場、パンくず・「同じ県のほかの会場」に使う情報、これからの公演（日付順）。
  * 表示する公演: ライブと判定したもの。判定待ち（unknown）はライブハウス型の会場だけ表示する（docs/plan.md 5章）
  */
-export async function getVenueDetail(db: Db, venueSlug: string, range: { from: string; to: string }) {
+export async function getVenueDetail(
+  db: Db,
+  venueSlug: string,
+  range: { from: string; to: string },
+  now: Date = new Date(),
+) {
   const siblingPrefecture = db.select({ id: venues.prefectureId }).from(venues).where(eq(venues.slug, venueSlug))
-  const [rows, siblingRows, eventRows] = await db.batch([
+  const venueId = sql<number>`(SELECT id FROM ${venues} WHERE ${venues.slug} = ${venueSlug})`
+  const [rows, siblingRows, eventRows, stateRows, latestRows, successRows] = await db.batch([
     db
       .select({
         ...regionColumns,
@@ -183,6 +190,7 @@ export async function getVenueDetail(db: Db, venueSlug: string, range: { from: s
         ),
       )
       .orderBy(asc(events.date), asc(events.startTime), asc(events.id)),
+    ...aiStateQueries(db, venueId),
   ])
   const row = rows[0]
   if (!row) return null
@@ -198,5 +206,12 @@ export async function getVenueDetail(db: Db, venueSlug: string, range: { from: s
     },
     otherVenues: siblingRows.filter((v) => v.slug !== venueSlug).map(({ prefectureId: _, ...v }) => v),
     events: eventRows satisfies VenueEvent[],
+    // AI で補う会場なら、24時間以内の検索結果があるか（無ければ画面から AI 検索を始める）
+    ai: aiView(
+      needsAi(row.fetchMode, stateRows[0] ?? null, now),
+      latestRows[0] ?? null,
+      successRows[0] ?? null,
+      now,
+    ) satisfies AiView,
   }
 }

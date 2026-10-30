@@ -2,3 +2,5 @@
 # AI を実際に呼ぶときだけ設定する。通常は AI_PROVIDER=mock のままでよい
 AI_PROVIDER=mock
 ANTHROPIC_API_KEY=
+AI_MODEL=mock
+AI_DAILY_BUDGET_USD=1

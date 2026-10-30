@@ -62,3 +62,10 @@ export async function cachedFetch(
   ctx.waitUntil(cache.put(key, response.clone()))
   return response
 }
+
+/** 内容が変わったページ（AI 検索の結果が入った会場など）を、この拠点のキャッシュから消す */
+export async function purgePages(pathname: string, version: string): Promise<void> {
+  const cache = (caches as unknown as { default: Cache }).default
+  const base = `https://page-cache.internal/${encodeURIComponent(version)}${pathname}`
+  await Promise.all([cache.delete(base), cache.delete(`${base}?mode=fav`)])
+}

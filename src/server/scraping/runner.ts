@@ -3,7 +3,7 @@
 import { and, asc, eq, gte, isNull, lt, or, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { todayJst } from '@/shared/dates'
-import { fnv64 } from '@/shared/hash'
+import { fingerprintOf } from '@/shared/fingerprint'
 import { normalizeText } from '@/shared/normalize'
 import { classifyByRules, titleHashOf } from '../classify/rules'
 import { aliased } from '../db/alias'
@@ -334,11 +334,7 @@ async function fetchText(fetcher: Fetcher, url: string): Promise<string> {
   return text
 }
 
-/** 重複を防ぐ鍵: 会場・日付・開演時刻・正規化したタイトルのハッシュ */
-export function fingerprintOf(venueId: number, date: string, startTime: string | null, title: string): string {
-  // 開演時刻も含める（同じ日に同じタイトルの昼の部・夜の部があるため）
-  return fnv64(`${venueId}|${date}|${startTime ?? ''}|${normalizeText(title)}`)
-}
+export { fingerprintOf }
 
 // ライブ判定: 手動の上書き（classification_cache の manual）→ ルール → AI の判定結果（キャッシュ）→ unknown。
 // キャッシュは同じ文の中で引く（D1 の往復を増やさない）。取り直しで判定が決まらなかったときは前の判定を残し、

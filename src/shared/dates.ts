@@ -7,6 +7,11 @@ export function todayJst(now: Date = new Date()): string {
   return new Date(now.getTime() + JST_OFFSET_MS).toISOString().slice(0, 10)
 }
 
+/** JST のその日の 0 時（UTC の ISO 文字列）。「今日の AI 使用額」などの集計に使う */
+export function jstDayStartIso(date: string): string {
+  return new Date(Date.parse(`${date}T00:00:00+09:00`)).toISOString()
+}
+
 /** 'YYYY-MM-DD' に日数を足す */
 export function addDays(date: string, days: number): string {
   const t = Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)))
