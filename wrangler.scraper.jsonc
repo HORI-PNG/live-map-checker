@@ -1,0 +1,31 @@
+/**
+ * 会場サイトの自動取得用（scripts/scrape.mjs が wrangler dev で起動する。Cloudflare にはデプロイしない）。
+ * D1 は remote: true で、本番（または staging）の D1 に直接つなぐ
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "live-map-checker-scraper",
+  "main": "src/scraper-entry.ts",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lmc-prod",
+      "database_id": "9b46d2dd-c996-4b6e-8878-7b57075e3786",
+      "remote": true
+    }
+  ],
+  "env": {
+    "staging": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "lmc-staging",
+          "database_id": "32cfb3ef-4189-45b5-b971-7d35d9a72389",
+          "remote": true
+        }
+      ]
+    }
+  }
+}

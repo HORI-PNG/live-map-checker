@@ -225,9 +225,11 @@ export interface ScraperAdapter {
 
 ### 3.2 実行の流れ（Cron）
 
-- Cron は **10分ごと**（`*/10 * * * *`）。1回の実行では、取得の順番待ちの中から**1ページ（1会場の1か月分）だけ**処理する（無料プランの CPU 10ms に収めるため。抽出は1ページ約6ms）。各会場の6か月分は約1時間で回り終わり、1日1回ずつ取り直す。会場が増えても1回あたりの負荷は一定。
-- 取得の順番待ち（会場×月のページ）と途中経過は D1（`venue_fetch_state` と `fetch_runs`）に持ち、全ページがそろった時点で、その回の取得として成功・失敗を判定する。
-- Cron は会場サイトの自動取得だけに使い、AI 検索は行わない（AI 検索は利用者が会場を開いたときだけ。4.2）。
+- **取得は GitHub Actions で行う（2026-10-30 変更）**。Cloudflare の Cron で1ページずつ取得すると、1回あたり CPU 15〜40ms かかり、無料プランの 10ms に収まらなかったため（PR 6 の実測）。
+  - `.github/workflows/scrape.yml` が6時間ごとに `scripts/scrape.mjs` を動かす。GitHub Actions の中で `wrangler dev`（ローカルの workerd）で取得用の Worker（`src/scraper-entry.ts`、`wrangler.scraper.jsonc`）を起動し、本番の D1 にだけリモートでつなぐ（remote bindings）。取得のコードは Workers 用のまま使える。
+  - 1回の実行で、順番待ち（`fetch_pages`。会場×月のページ）のうち20時間以上取っていないページを、3秒間隔で1ページずつ取得する。各ページは1日1回取り直す。
+  - 本番の Worker の Cron は使わない（`triggers.crons` は空）。
+- AI 検索は取得の処理では行わない（AI 検索は利用者が会場を開いたときだけ。4.2）。
 - 取得の手順（`src/server/scraping/fetcher.ts`）:
   1. robots.txt を取得（1日キャッシュ）し、対象パスが許可されているか確認。禁止なら `skipped(robots)` を記録して取得しない。
   2. User-Agent は `LiveMapChecker/1.0 (+https://<公開URL>/about/data)` と明示。同じホストへは間隔を空けて順番に取得。タイムアウト 10 秒。
@@ -465,9 +467,9 @@ E2E はローカルのシード済み D1 と `AI_PROVIDER=mock` で動かす。�
 
 | 環境 | Worker | D1 | AI | Cron |
 |---|---|---|---|---|
-| ローカル | `vite dev` | ローカル D1（シード済み） | mock（`.dev.vars` で切替可） | `/cdn-cgi/local/scheduled` で手動 |
+| ローカル | `vite dev` | ローカル D1（シード済み） | mock（`.dev.vars` で切替可） | 取得は `node scripts/scrape.mjs staging` で staging の D1 に向けて手動 |
 | PR プレビュー | `live-map-checker-staging` のバージョン（`pr-<番号>` の別名URL） | `lmc-staging`（全PRで共有） | mock | なし |
-| 本番 | `live-map-checker`（`*.workers.dev`） | `lmc-prod` | anthropic | 毎時（自動取得のみ） |
+| 本番 | `live-map-checker`（`*.workers.dev`） | `lmc-prod` | anthropic | なし（会場サイトの取得は GitHub Actions が6時間ごと） |
 
 ### GitHub Actions
 
@@ -546,16 +548,16 @@ v1.1 以降（公開後）: マリンメッセ福岡・福岡国際センター�
 | 処理 | 工夫 |
 |---|---|
 | 画面の描画（SSR） | 地図・会場ページの表示結果を **Cache API**（無料）に数分間保存し、同じページは描画せずに返す。お気に入りの照合はブラウザで行うので、キャッシュしても利用者ごとに違う内容にはならない。地方ごとの会場数はルートの loader で読み、10分間使い回す |
-| 会場サイトの取得（Cron） | 1回の起動で1ページだけ処理する（3.2） |
+| 会場サイトの取得 | Cloudflare では行わず、GitHub Actions の中の wrangler dev（CPU の制限なし）で行う（3.2） |
 | 出典検証（AI 検索） | URL 1件ごとに別の呼び出しに分け、本文は軽い文字列処理で照合する（4.3） |
 | AI の呼び出し | 応答を待つ時間は CPU 時間に入らない。JSON の解析は小さいので問題ない |
 | 確認方法 | `scripts/measure-cpu.mjs` で staging の CPU 時間を測る（Workers Logs の `cpuTime`）。重い処理を入れる PR（5・6・8）で毎回測り、最大値が 10ms を超えたら直してからマージする |
-| それでも収まらない場合 | 会場サイトの取得などのバッチ処理は GitHub Actions（公開リポジトリは無料）に移し、結果を D1 に書き込む |
+| それでも収まらない場合 | ほかのバッチ処理も同じ方法（GitHub Actions ＋ remote bindings）で Cloudflare の外に出す |
 
 ## 11. 動作確認（v1 全体の検証方法）
 
 1. `pnpm check && pnpm test && pnpm test:e2e` がローカルと CI で通る。
-2. ローカルで `curl "http://localhost:5173/cdn-cgi/local/scheduled?cron=0+*+*+*+*"` を10回実行し、Zepp 3会場と熊本城ホールの公演が `events` に入り、`fetch_runs` に成功が記録される。取得ルールの対象 URL をわざと 404 にすると `failed(http)` が記録され、会場画面が AI 補完に切り替わる。
+2. `node scripts/scrape.mjs staging` を実行し、Zepp 3会場と熊本城ホールの公演が staging の `events` に入り、`fetch_runs` に成功が記録される。取得ルールの対象 URL をわざと 404 にすると `failed(http)` が記録され、会場画面が AI 補完に切り替わる。
 3. staging（PR プレビュー）で、スマホ実機（iPhone／Android）と PC ブラウザで、モックアップ12画面と見比べる（ダーク・ライト両方）。
 4. 本番で AI のみの会場を1つ開き、ローディング → 検証済み公演と出典リンクの表示を確認する。もう一度開くと即時に表示される（キャッシュ）。`ai_searches` の費用が記録され、管理ページの当日使用額に反映される。
 5. `AI_DAILY_BUDGET_USD` を一時的に 0 にすると AI 検索が止まり、「利用できません」の表示になる。

@@ -1,0 +1,40 @@
+name: Scrape
+
+# 会場サイトの自動取得（docs/plan.md 3.2）。無料プランの CPU 10ms の制限を受けないよう、
+# Cloudflare ではなく GitHub Actions の中で動かし、本番の D1 に書き込む。
+# 同じページは 20 時間たつまで取り直さないので、6時間ごとに動かすと各ページを1日1回取得する
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 書き込む D1
+        type: choice
+        options: [prod, staging]
+        default: prod
+
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/scrape.mjs ${{ inputs.target || 'prod' }}

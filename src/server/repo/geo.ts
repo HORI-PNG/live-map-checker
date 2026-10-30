@@ -1,7 +1,7 @@
 // 地方・県・会場の読み出し（地図と会場一覧の画面で使う）
 // 1画面の読み出しは db.batch で1往復にまとめる（D1 へのクエリ回数を抑える）
 import { and, asc, eq, gte, lte, or, sql } from 'drizzle-orm'
-import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
+import { aliased as as } from '../db/alias'
 import type { Db } from '../db/client'
 import { events, prefectures, regions, venues } from '../db/schema'
 
@@ -21,12 +21,6 @@ const venueListColumns = {
   slug: venues.slug,
   name: venues.name,
   area: venues.area,
-}
-
-// D1 の batch は行を「列名 → 値」で返すため、結合した表に同じ列名（name, slug など）があると上書きされる。
-// 結合する読み出しでは、SQL の側でも重ならない別名（AS）を付けて選ぶ。
-function as<T>(column: AnySQLiteColumn<{ data: T }>, alias: string) {
-  return sql<T>`${column}`.mapWith(column).as(alias)
 }
 
 const regionColumns = {
