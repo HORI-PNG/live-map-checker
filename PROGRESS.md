@@ -55,11 +55,22 @@
 - `/code-review`（指摘を反映。キャッシュの鍵の正規化・デプロイのバージョン・サーバー関数は対象外など）
 - 本番で会場ページとキャッシュを確認（本番にはサンプル公演なし）
 
-## 2026-10-30 PR 6 `feat/scraper-zepp`（作業中・未マージ）
+## 2026-10-30 PR 6 `feat/scraper-zepp`（#15 マージ）
 
 - 取得の仕組みと Zepp 3会場の取得ルールを実装。実際の Zepp のページから取得できることを確認
 - Cloudflare の Cron で1ページずつ取得すると CPU 15〜40ms（D1 往復の削減・解析範囲の絞り込みなどをしても 10ms に収まらず）
 - → 取得は GitHub Actions の中の `wrangler dev`（D1 は remote）で動かす方式に変更。本番 Worker の Cron を停止
 - 手元から staging に対して取得を実行（18ページ成功、公開中の公演数が月ごとの件数と一致）
-- `/code-review`（2回、指摘を反映）、`/security-review`（高信頼度の脆弱性なし。http/https に限る強化を提案）
-- CLAUDE.md を整理し、分野ごとのルール（`.claude/rules/`）と、この記録・`PLAN.md` を追加
+- `/code-review`（3回、指摘を反映）、`/security-review`（高信頼度の脆弱性なし）。提案を受けて、取得した公演のリンクを取得元と同じホストの http/https に限定（`toDetailUrl`）
+- CLAUDE.md を整理し、分野ごとのルール（`.claude/rules/`）、この記録・`PLAN.md` を追加
+- ユーザーがマージ（#13 actions/cache の更新も同時にマージ）。#13 の CI から本番デプロイが成功
+- 本番 D1 にマイグレーション 0001 が入ったことを確認。Actions の「Scrape」を手動実行（target=prod）→ 18ページ成功、本番の会場ページに Zepp の公演と詳細リンクが表示された
+
+## 2026-10-30 PR 7 `feat/scraper-kumamoto-classify`（作業中）
+
+- 熊本城ホールの robots.txt（404）と規約を再確認。利用規約のページは無く、フッターの著作権表示だけ → 判定 ok のまま、確認記録の日時と内容を更新
+- 熊本城ホールの取得ルール（`/event/YYYYMM.html`）。予定の無い月はページが無い（404）ので、来月以降の 404 は「公演なし」、今月の 404 は失敗とする（`futureNotFoundIsEmpty`）。延期・中止の公演は載せない。詳細リンクは主催者のサイト（別のホスト）なので http/https だけ認める
+- ライブ判定のルール（`src/server/classify/rules.ts`）。会場のラベル → 除外 → ライブ → unknown。保存の文の中で `classification_cache` を引き、手動 > ルール > AI の順。取り直しで決まらないときは前の判定を残し、手動は手動でしか上書きしない
+- 実データで見直し: 「vs」「大会」は対バンにも使うので除外の言葉から外した。1行目が「〇〇の」「〇〇 &」「令和○年…」のときはアーティスト名にしない
+- 既知の限界: お笑いでも「LIVE」と書かれたもの（例: NON STYLE LIVE）はライブになる → 手動の上書き（`classification_cache` に `method='manual'`）で直す
+- staging で熊本城ホール6か月分の取得に成功（11月は延期の1件を除く5件）

@@ -297,10 +297,11 @@ export const VENUE_POLICIES: VenuePolicySeed[] = [
     robotsResult: 'not_found',
     termsUrl: null,
     termsVerdict: 'ok',
-    termsQuote: null,
-    checkedAt: CHECKED_AT,
+    termsQuote: 'Copyright © KUMAMOTO-JO HALL All Rights Reserved.（各ページのフッター。転載・取得を禁じる条項はなし）',
+    // PR 7 で取得ルールを書く前に再確認（初回は 2026-10-23）
+    checkedAt: '2026-10-30T08:10:00Z',
     checkedBy: CHECKED_BY,
-    note: '利用規約・サイトポリシーのページなし（/policy/ 等は 404）。月ごとのページ /event/YYYYMM.html',
+    note: '利用規約・サイトポリシーのページなし（/policy/ /privacy/ /terms/ /sitepolicy/ は 404、トップ・FAQ・お問い合わせにもリンクなし）。月ごとのページ /event/YYYYMM.html（予定の無い月は 404）。公演名・日付・開場／開演・主催者サイトへのリンクだけを取得',
   },
   {
     venue: 'osaka-jo-hall',
