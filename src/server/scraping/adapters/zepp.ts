@@ -1,6 +1,14 @@
 // Zepp（Fukuoka / Osaka Bayside / Namba）のスケジュール。1か月分が1ページ（?_y=YYYY&_m=M）
 // 確認記録: src/server/db/seed/data.ts の VENUE_POLICIES（robots.txt は /wp-admin/ だけ禁止、規約に禁止条項なし）
-import { addMonths, decodeEntities, type PageSpec, type ScraperAdapter, toTime, validateEvents } from '../types'
+import {
+  addMonths,
+  decodeEntities,
+  type PageSpec,
+  type ScraperAdapter,
+  toDetailUrl,
+  toTime,
+  validateEvents,
+} from '../types'
 
 const MONTHS_AHEAD = 6
 
@@ -85,7 +93,7 @@ export const zeppAdapter: ScraperAdapter = {
           date: `${r.year.trim()}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
           openTime: toTime(r.open),
           startTime: toTime(r.start),
-          detailUrl: r.url ? new URL(r.url, pageUrl).toString() : null,
+          detailUrl: toDetailUrl(r.url, pageUrl),
           venueCategory: null,
         }
       }),

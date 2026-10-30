@@ -14,7 +14,11 @@ export const rawEventSchema = z.object({
     .string()
     .regex(/^\d{2}:\d{2}$/)
     .nullable(),
-  detailUrl: z.string().url().nullable(),
+  detailUrl: z
+    .string()
+    .url()
+    .refine((url) => /^https?:\/\//i.test(url), 'http/https 以外の URL')
+    .nullable(),
   /** 会場サイトにジャンルの表示があれば（「コンサート」「スポーツ」など） */
   venueCategory: z.string().nullable(),
 })
@@ -43,6 +47,21 @@ export function validateEvents(rows: unknown[]): ParseResult {
     else invalid++
   }
   return { events, invalid }
+}
+
+/**
+ * 公演のリンク（相対 URL も可）を絶対 URL にする。取得元と同じホストの http/https だけ残し、
+ * それ以外（javascript: や別のサイト）は null にして公演自体は捨てない
+ */
+export function toDetailUrl(href: string | null | undefined, pageUrl: string): string | null {
+  if (!href?.trim()) return null
+  try {
+    const url = new URL(href.trim(), pageUrl)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    return url.host === new URL(pageUrl).host ? url.toString() : null
+  } catch {
+    return null
+  }
 }
 
 /** 'YYYY-MM' から n か月後 */

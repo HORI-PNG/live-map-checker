@@ -31,6 +31,7 @@ describe('Zepp の取得ルール', () => {
       startTime: '16:00',
     })
     expect(events.every((e) => e.date.startsWith('2026-11'))).toBe(true)
+    expect(events[0].detailUrl).toBe('https://www.zepp.co.jp/hall/fukuoka/schedule/single/?rid=0')
   })
 
   it('設定にホール名が無ければエラー', () => {

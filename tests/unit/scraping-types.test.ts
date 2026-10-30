@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addMonths, decodeEntities, toTime, validateEvents } from '@/server/scraping/types'
+import { addMonths, decodeEntities, toDetailUrl, toTime, validateEvents } from '@/server/scraping/types'
 
 describe('scraping の共通処理', () => {
   it('decodeEntities: 名前付き・数値の文字参照を戻す。知らないものはそのまま', () => {
@@ -32,8 +32,27 @@ describe('scraping の共通処理', () => {
       detailUrl: null,
       venueCategory: null,
     }
-    const result = validateEvents([ok, { ...ok, date: '2026-11-1' }, { ...ok, title: ' ' }])
+    const result = validateEvents([
+      ok,
+      { ...ok, date: '2026-11-1' },
+      { ...ok, title: ' ' },
+      { ...ok, detailUrl: 'javascript:alert(1)' },
+    ])
     expect(result.events).toHaveLength(1)
-    expect(result.invalid).toBe(2)
+    expect(result.invalid).toBe(3)
+  })
+
+  it('toDetailUrl: 取得元と同じホストの http/https だけ残す', () => {
+    const page = 'https://www.zepp.co.jp/hall/fukuoka/schedule/?_y=2026&_m=11'
+    expect(toDetailUrl('/hall/fukuoka/schedule/single/?rid=1', page)).toBe(
+      'https://www.zepp.co.jp/hall/fukuoka/schedule/single/?rid=1',
+    )
+    expect(toDetailUrl('https://www.zepp.co.jp/x', page)).toBe('https://www.zepp.co.jp/x')
+    expect(toDetailUrl('javascript:alert(1)', page)).toBeNull()
+    expect(toDetailUrl('data:text/html,x', page)).toBeNull()
+    expect(toDetailUrl('https://evil.example/x', page)).toBeNull()
+    expect(toDetailUrl('http://[', page)).toBeNull()
+    expect(toDetailUrl('', page)).toBeNull()
+    expect(toDetailUrl(null, page)).toBeNull()
   })
 })
