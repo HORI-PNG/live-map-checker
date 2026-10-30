@@ -1,11 +1,19 @@
 version: 2
 updates:
+  # npm: マイナー・パッチ更新を週1回まとめて1つの PR に。
+  # メジャー更新（TypeScript・Vitest など）は土台が大きく変わるので、自動では作らず計画して手で上げる
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly }
     groups:
-      all:
-        patterns: ["*"]
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    groups:
+      actions:
+        patterns: ["*"]
