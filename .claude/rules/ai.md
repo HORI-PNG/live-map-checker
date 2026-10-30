@@ -24,3 +24,10 @@ paths:
 - mock は出典ページも固定で返す（ネットワークに出ない）。出典 URL に検索の開始日を入れて、別の呼び出しでも同じページを作れるようにしている。
 - ローカルの `pnpm dev` は `.dev.vars` が無いと本番の値（anthropic）になり、キーが無いので「利用できません」と出る。mock にするなら `.dev.vars.example` を `.dev.vars` にコピーする。E2E は `playwright.config.ts` で `CLOUDFLARE_INCLUDE_PROCESS_ENV` を使って mock にしている。
 - サンプル公演の投入（`seed/sample-events.ts`）は AI の検索記録を消し、サンプルのある AI の会場を「検索済み」、取得の会場を「取得成功」にする。それ以外の AI の会場は開くと mock の検索が走る。
+
+## ライブ判定（PR 9 `feat/ai-classify`）
+
+- `src/server/ai/classify.ts` の `runVenueClassification`。会場を開いたときに、その会場のこれからの unknown のタイトル（最大 40）を判定する（取得の処理では呼ばない）。画面からは `classifyVenueWithAi`（POST）を `useAiClassify` が呼ぶ（表示は変えずに裏で行い、終わったら読み直す）。
+- 先に `classification_cache` を引き、手動・ほかの会場で判定済みのタイトルは AI に聞かない。AI の結果は `method='ai'` で保存（手動の行は上書きしない）。公演の更新は手動の判定を上書きしない。
+- 記録は `ai_searches` に `kind='classify'` で残す（日次上限は検索と共通。`ledger.ts` の `claimAiTask`）。AI 検索の状態（`state.ts`）は `kind='search'` だけを見る。失敗・予算超過の後は30分、成功の後も30分、聞き直さない。
+- 1文の値 100 個・D1 のクエリ 50 に収めるため、公演の更新は `CASE title WHEN ...` で 15 タイトルずつ、キャッシュの保存は 15 行ずつまとめる。

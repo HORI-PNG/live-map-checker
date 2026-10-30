@@ -1,6 +1,7 @@
 // 地方・県・会場の読み出し（地図と会場一覧の画面で使う）
 // 1画面の読み出しは db.batch で1往復にまとめる（D1 へのクエリ回数を抑える）
 import { and, asc, eq, gte, lte, or, sql } from 'drizzle-orm'
+import { classifyPending, classifyStateQueries } from '../ai/classify'
 import { type AiView, aiStateQueries, aiView, needsAi } from '../ai/state'
 import { aliased as as } from '../db/alias'
 import type { Db } from '../db/client'
@@ -143,7 +144,7 @@ export async function getVenueDetail(
 ) {
   const siblingPrefecture = db.select({ id: venues.prefectureId }).from(venues).where(eq(venues.slug, venueSlug))
   const venueId = sql<number>`(SELECT id FROM ${venues} WHERE ${venues.slug} = ${venueSlug})`
-  const [rows, siblingRows, eventRows, stateRows, latestRows, successRows] = await db.batch([
+  const [rows, siblingRows, eventRows, stateRows, latestRows, successRows, unknownRows, classifyRows] = await db.batch([
     db
       .select({
         ...regionColumns,
@@ -191,6 +192,7 @@ export async function getVenueDetail(
       )
       .orderBy(asc(events.date), asc(events.startTime), asc(events.id)),
     ...aiStateQueries(db, venueId),
+    ...classifyStateQueries(db, venueId, range.from),
   ])
   const row = rows[0]
   if (!row) return null
@@ -213,5 +215,7 @@ export async function getVenueDetail(
       successRows[0] ?? null,
       now,
     ) satisfies AiView,
+    // ルールで決まらなかったタイトルがあり、いま AI に判定させてよいか（画面から判定を始める）
+    classifyPending: classifyPending(unknownRows[0]?.n ?? 0, classifyRows[0] ?? null, now),
   }
 }

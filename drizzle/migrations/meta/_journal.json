@@ -15,6 +15,13 @@
       "when": 1793344166717,
       "tag": "0001_fetch_pages",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793354081417,
+      "tag": "0002_ai_task_kind",
+      "breakpoints": true
     }
   ]
 }

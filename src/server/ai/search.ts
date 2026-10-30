@@ -8,6 +8,7 @@ import { aliased as as } from '../db/alias'
 import type { Db } from '../db/client'
 import { aiSearches, events, prefectures, venues } from '../db/schema'
 import { EVENT_WINDOW_DAYS } from '../repo/geo'
+import { claimOrSkip, finishAiTask, recordSkippedAiTask } from './ledger'
 import { AI_RESULT_TTL_MS, aiStateQueries, aiView, needsAi, RUNNING_TIMEOUT_MS } from './state'
 import { AiError, type AiProvider, type AiUsage, type EventCandidate, eventCandidateSchema } from './types'
 import type { SourceCheck, SourceItem } from './verify'
@@ -34,22 +35,6 @@ export type SearchOutcome =
   | { status: 'not_needed' | 'fresh' | 'running' }
   | { status: 'unavailable'; reason: 'budget' | 'error' }
   | { status: 'searched'; candidates: number; verified: number }
-
-const INSERT_FINISHED_SQL = `INSERT INTO ai_searches (venue_id, status, provider, model, started_at, finished_at, error)
-  VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6)`
-
-// 行を作るのは「同じ会場で検索中（running）が無い」かつ「今日の合計（検索中の分の見積もりを含む）＋見積もり ≦ 上限」の
-// ときだけ。1文で確かめるので、同時に開かれても上限を超えて走り出さない。
-// 見積もり額を先に cost_usd_micros に入れておき（予約）、終わったら実際の額で上書きする。途中で止まっても予算に数えられる
-const CLAIM_SQL = `INSERT INTO ai_searches (venue_id, status, provider, model, started_at, cost_usd_micros)
-  SELECT ?1, 'running', ?2, ?3, ?4, ?6
-  WHERE NOT EXISTS (SELECT 1 FROM ai_searches WHERE venue_id = ?1 AND status = 'running' AND started_at > ?5)
-    AND (SELECT coalesce(sum(cost_usd_micros), 0) FROM ai_searches WHERE started_at >= ?7) + ?6 <= ?8
-  RETURNING id`
-
-const FINISH_SQL = `UPDATE ai_searches SET status = ?2, finished_at = ?3, expires_at = ?4, input_tokens = ?5,
-  output_tokens = ?6, web_search_count = ?7, cost_usd_micros = ?8, candidates = ?9, verified = ?10, error = ?11
-  WHERE id = ?1`
 
 // 取得した公演（source_kind = 'scrape'）と同じ鍵なら上書きしない
 const UPSERT_AI_EVENT_SQL = `INSERT INTO events
@@ -138,39 +123,44 @@ export async function runVenueAiSearch(
   try {
     provider = deps.provider()
   } catch (error) {
-    await recordFinished(d1, venue.id, 'failed', 'none', 'none', nowIso, String(error))
+    await recordSkippedAiTask(d1, {
+      venueId: venue.id,
+      kind: 'search',
+      status: 'failed',
+      provider: 'none',
+      model: 'none',
+      nowIso,
+      error: String(error),
+    })
     return { status: 'unavailable', reason: 'error' }
   }
 
-  // 予算の確認は省略しない（CLAUDE.md）。行の確保と同じ1文で確かめる
+  // 予算の確認は省略しない（CLAUDE.md）。行の確保と同じ1文で確かめる（ledger.ts）
   const estimate = provider.estimateCostMicros()
-  const claimed = await d1
-    .prepare(CLAIM_SQL)
-    .bind(
-      venue.id,
-      provider.name,
-      provider.model,
-      nowIso,
-      new Date(now.getTime() - RUNNING_TIMEOUT_MS).toISOString(),
-      estimate,
-      dayStart,
-      deps.budgetMicros,
-    )
-    .first<{ id: number }>()
-  if (!claimed) {
-    // 作れなかった理由: 予算を超えるなら記録する（しばらくは検索し直さない）。そうでなければ別の人が検索中
-    if ((spentRows[0]?.total ?? 0) + estimate > deps.budgetMicros) {
-      await recordFinished(d1, venue.id, 'budget_exceeded', provider.name, provider.model, nowIso, null)
-      return { status: 'unavailable', reason: 'budget' }
-    }
-    return { status: 'running' }
-  }
-  const searchId = claimed.id
+  const searchId = await claimOrSkip(d1, {
+    venueId: venue.id,
+    kind: 'search',
+    provider: provider.name,
+    model: provider.model,
+    nowIso,
+    runningSinceIso: new Date(now.getTime() - RUNNING_TIMEOUT_MS).toISOString(),
+    estimateMicros: estimate,
+    dayStartIso: dayStart,
+    budgetMicros: deps.budgetMicros,
+    spentMicros: spentRows[0]?.total ?? 0,
+  })
+  if (searchId === 'budget') return { status: 'unavailable', reason: 'budget' }
+  if (searchId === 'running') return { status: 'running' }
   const fail = async (usage: AiUsage, message: string) => {
-    await d1
-      .prepare(FINISH_SQL)
-      .bind(...finishValues(searchId, 'failed', current(), null, usage, 0, 0, message))
-      .run()
+    await finishAiTask(d1, searchId, {
+      status: 'failed',
+      finished: current(),
+      expires: null,
+      usage,
+      candidates: 0,
+      verified: 0,
+      error: message,
+    }).run()
     return { status: 'unavailable', reason: 'error' } as const
   }
 
@@ -263,20 +253,15 @@ export async function runVenueAiSearch(
     }
     writes.push(d1.prepare(DEACTIVATE_OLD_AI_SQL).bind(venue.id, today, searchId))
     writes.push(
-      d1
-        .prepare(FINISH_SQL)
-        .bind(
-          ...finishValues(
-            searchId,
-            'succeeded',
-            finished,
-            new Date(finished.getTime() + AI_RESULT_TTL_MS),
-            usage,
-            raw.length,
-            verified,
-            null,
-          ),
-        ),
+      finishAiTask(d1, searchId, {
+        status: 'succeeded',
+        finished,
+        expires: new Date(finished.getTime() + AI_RESULT_TTL_MS),
+        usage,
+        candidates: raw.length,
+        verified,
+        error: null,
+      }),
     )
     await d1.batch(writes)
     return { status: 'searched', candidates: raw.length, verified }
@@ -331,44 +316,4 @@ function groupBySource(candidates: PickedCandidate[]): [string, PickedCandidate[
     else if (groups.size < MAX_SOURCES) groups.set(c.source_url, [c])
   }
   return [...groups]
-}
-
-function finishValues(
-  id: number,
-  status: 'succeeded' | 'failed',
-  finished: Date,
-  expires: Date | null,
-  usage: AiUsage,
-  candidates: number,
-  verified: number,
-  error: string | null,
-) {
-  return [
-    id,
-    status,
-    finished.toISOString(),
-    expires?.toISOString() ?? null,
-    usage.inputTokens,
-    usage.outputTokens,
-    usage.webSearchCount,
-    usage.costUsdMicros,
-    candidates,
-    verified,
-    error?.slice(0, 500) ?? null,
-  ]
-}
-
-async function recordFinished(
-  d1: D1Database,
-  venueId: number,
-  status: 'failed' | 'budget_exceeded',
-  provider: string,
-  model: string,
-  nowIso: string,
-  error: string | null,
-) {
-  await d1
-    .prepare(INSERT_FINISHED_SQL)
-    .bind(venueId, status, provider, model, nowIso, error?.slice(0, 500) ?? null)
-    .run()
 }

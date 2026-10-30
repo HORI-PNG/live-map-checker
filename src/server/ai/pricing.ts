@@ -36,6 +36,11 @@ export function estimateSearchMicros(model: string): number {
   return costMicros(model, { inputTokens: 25_000, outputTokens: 4_000, webSearchCount: 3 })
 }
 
+/** ライブ判定の見積もり: 指示 約1.5k ＋ 1件あたり入力 60・出力 80 トークン（考える分の余裕 1k を足す） */
+export function estimateClassifyMicros(model: string, count: number): number {
+  return costMicros(model, { inputTokens: 1_500 + 60 * count, outputTokens: 1_000 + 80 * count, webSearchCount: 0 })
+}
+
 export function usageOf(model: string, u: TokenUsage): AiUsage {
   return {
     inputTokens: u.inputTokens + (u.cacheCreationTokens ?? 0) + (u.cacheReadTokens ?? 0),

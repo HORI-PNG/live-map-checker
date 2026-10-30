@@ -41,8 +41,17 @@ test('会場: 表示の切り替えは URL に残り、再読み込みしても�
 })
 
 test('会場: 公演が無い会場は案内を出す', async ({ page }) => {
-  await open(page, '/venues/kumamoto-jo-hall')
+  await open(page, '/venues/zepp-osaka-bayside')
   await expect(page.getByText('これから半年のライブは、まだ見つかっていません。')).toBeVisible()
+})
+
+test('会場: ルールで決まらなかったタイトルは、開くと AI（mock）が判定し、ライブなら表示する', async ({ page }) => {
+  // 熊本城ホール（多目的ホール）の「アーティスト J スペシャルナイト」は判定待ち（unknown）なので、最初は出ない
+  await open(page, '/venues/kumamoto-jo-hall')
+  const list = page.getByRole('region', { name: 'ライブ一覧' })
+  await expect(list.getByRole('heading', { level: 3, name: 'アーティスト J' })).toBeVisible({ timeout: 20_000 })
+  await page.reload()
+  await expect(list.getByRole('heading', { level: 3, name: 'アーティスト J' })).toBeVisible()
 })
 
 test('会場: AI だけで探す会場は、開くと AI 検索（mock）が走り、出典を確かめた公演だけを出す', async ({ page }) => {

@@ -18,6 +18,14 @@ export const eventCandidateSchema = z.object({
 })
 export type EventCandidate = z.infer<typeof eventCandidateSchema>
 
+/** ルールで決まらなかったタイトルの AI の判定（index は聞いたタイトルの順番） */
+export const classificationSchema = z.object({
+  index: z.number().int().min(0),
+  category: z.enum(['live', 'non_live']),
+  reason: z.string().trim().max(200).nullable(),
+})
+export type Classification = z.infer<typeof classificationSchema>
+
 export type VenueSearchInput = {
   venueName: string
   area: string
@@ -45,6 +53,10 @@ export interface AiProvider {
   estimateCostMicros(): number
   /** 候補は検証前の生の値（zod で検証するのは呼び出し側） */
   searchVenueEvents(input: VenueSearchInput): Promise<{ candidates: unknown[]; usage: AiUsage }>
+  /** ライブ判定の費用の見積もり（マイクロドル） */
+  estimateClassifyMicros(count: number): number
+  /** タイトルが音楽のライブかを判定する。結果は検証前の生の値 */
+  classifyTitles(venueName: string, titles: string[]): Promise<{ results: unknown[]; usage: AiUsage }>
   /** 出典ページの取得を差し替える（mock 用。本物は fetch） */
   fetchSource?: (url: string) => Promise<Response>
 }

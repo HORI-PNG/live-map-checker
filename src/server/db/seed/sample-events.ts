@@ -93,6 +93,16 @@ const SAMPLES: Sample[] = [
     open: '18:00',
     start: '19:00',
   },
+  // ルールで決まらないタイトル（多目的ホールなので、AI のライブ判定（mock）で live になるまで表示しない）
+  {
+    venue: 'kumamoto-jo-hall',
+    inDays: 12,
+    artist: 'アーティスト J',
+    title: 'アーティスト J スペシャルナイト',
+    open: '17:00',
+    start: '18:00',
+    category: 'unknown',
+  },
   {
     venue: 'kyocera-dome-osaka',
     inDays: 20,
@@ -125,7 +135,7 @@ const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
 
 /**
  * AI 検索の状態をそろえる（E2E が毎回同じ画面になるように）。
- * - AI の検索結果（mock）と検索の記録を消す
+ * - AI の検索結果・ライブ判定（mock）と記録を消す
  * - サンプル公演を置いた AI の会場は「24時間以内に検索済み」にする（開いても AI 検索が走らない）
  * - 自動取得の会場は「取得に成功している」ことにする（AI で補う対象にしない）。staging の本物の記録は上書きしない
  * それ以外の AI の会場（みずほPayPayドームなど）は、開くと AI 検索（mock）が走る
@@ -136,6 +146,7 @@ function aiStateStatements(): string[] {
     'UPDATE events SET ai_search_id = NULL WHERE ai_search_id IS NOT NULL;',
     "DELETE FROM events WHERE source_kind = 'ai' AND fingerprint NOT LIKE 'sample:%';",
     'DELETE FROM ai_verifications;',
+    "DELETE FROM classification_cache WHERE method = 'ai';",
     'DELETE FROM ai_searches;',
     `INSERT INTO ai_searches (venue_id, status, provider, model, started_at, finished_at, expires_at)
       SELECT id, 'succeeded', 'sample', 'sample', ${NOW}, ${NOW}, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+30 days')
