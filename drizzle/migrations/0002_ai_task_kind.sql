@@ -1,0 +1,1 @@
+ALTER TABLE `ai_searches` ADD `kind` text DEFAULT 'search' NOT NULL;

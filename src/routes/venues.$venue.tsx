@@ -5,6 +5,7 @@ import { ChevronRightIcon } from '@/components/nav/icons'
 import { AiSearchStatus, useAiSearch } from '@/components/venue/AiSearchStatus'
 import { EventList } from '@/components/venue/EventList'
 import { ModeToggle } from '@/components/venue/ModeToggle'
+import { useAiClassify } from '@/components/venue/useAiClassify'
 import { fetchVenue } from '@/server/functions/geo'
 
 const searchSchema = z.object({ mode: z.enum(['all', 'fav']).optional().catch(undefined) })
@@ -20,9 +21,10 @@ export const Route = createFileRoute('/venues/$venue')({
 
 // 会場画面（Venue.dc.html / DeskVenue.dc.html）。スマホは縦1列、PC は左に会場情報、右にカードを複数列
 function VenuePage() {
-  const { region, prefecture, venue, otherVenues, events, ai } = Route.useLoaderData()
+  const { region, prefecture, venue, otherVenues, events, ai, classifyPending } = Route.useLoaderData()
   const mode = Route.useSearch().mode ?? 'all'
   const { searching, failed } = useAiSearch(venue.slug, ai)
+  useAiClassify(venue.slug, classifyPending)
   return (
     <>
       <PageHeader

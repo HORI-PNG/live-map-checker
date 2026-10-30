@@ -59,6 +59,15 @@ export function createMockProvider(): AiProvider {
     name: 'mock',
     model: 'mock',
     estimateCostMicros: () => 0,
+    estimateClassifyMicros: () => 0,
+    async classifyTitles(_venueName, titles) {
+      // 決まった言葉があれば「ライブではない」、それ以外は「ライブ」
+      const results = titles.map((title, index) => {
+        const nonLive = /展|会議|決定戦|防災|トーク|おしゃべり|詩楽劇/.test(title)
+        return { index, category: nonLive ? 'non_live' : 'live', reason: 'mock' }
+      })
+      return { results, usage: { inputTokens: 0, outputTokens: 0, webSearchCount: 0, costUsdMicros: 0 } }
+    },
     async searchVenueEvents(input) {
       // 画面の「検索中」の表示を確かめられるよう、少しだけ待つ
       await new Promise((resolve) => setTimeout(resolve, 800))

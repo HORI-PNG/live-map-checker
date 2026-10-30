@@ -64,7 +64,7 @@
 - [x] テスト、`/code-review`（指摘9件を反映）、`/security-review`（脆弱性なし）
 - [x] PR を作成 → CI → マージの許可 → マージ → 本番で「Scrape」を手動実行し熊本城ホールの公演とライブ判定を確認
 
-## 8. PR 8 `feat/ai-search`（作業中）
+## 8. PR 8 `feat/ai-search`（#17 マージ）
 
 - [x] AI 提供元の抽象化（`AiProvider`）、Claude（Web 検索）、mock
 - [x] 24時間キャッシュ、同じ会場の二重起動の防止、ローディング表示、予算超過・失敗時の表示
@@ -75,9 +75,9 @@
 - [ ] Anthropic の API キーを発行し、月額上限を設定、本番に `wrangler secret put`（ユーザーの作業）
 - [ ] モデル比較の実測（Haiku／Sonnet／Opus 5.5）→ モデルと日次上限を確定
 - [x] CPU 計測（検索の本体 5〜22ms、検証 8〜19ms／件）、`/code-review`（10件反映）、`/security-review`（脆弱性なし）
-- [ ] PR、マージ
+- [x] PR、マージ（#17。PR プレビューで mock の AI 検索を確認、本番は API キー未設定で「利用できません」と表示）
 
-## 9. PR 9 `feat/ai-classify`
+## 9. PR 9 `feat/ai-classify`（作業中）
 
 - [ ] 判定できなかったタイトル（unknown）の AI 分類とキャッシュ
 

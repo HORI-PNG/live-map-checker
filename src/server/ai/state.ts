@@ -1,5 +1,5 @@
 // AI 検索の状態（docs/plan.md 2章「AIで補完する会場か」・4.2）。会場画面の読み出しと AI 検索の両方で使う
-import { desc, eq, type SQL, sql } from 'drizzle-orm'
+import { and, desc, eq, type SQL } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { aiSearches, type FETCH_MODES, venueFetchState } from '../db/schema'
 
@@ -94,13 +94,13 @@ export function aiStateQueries(db: Db, venueId: number | SQL<number>) {
     db
       .select(searchColumns)
       .from(aiSearches)
-      .where(eq(aiSearches.venueId, venueId))
+      .where(and(eq(aiSearches.venueId, venueId), eq(aiSearches.kind, 'search')))
       .orderBy(desc(aiSearches.startedAt), desc(aiSearches.id))
       .limit(1),
     db
       .select(searchColumns)
       .from(aiSearches)
-      .where(sql`${aiSearches.venueId} = ${venueId} AND ${aiSearches.status} = 'succeeded'`)
+      .where(and(eq(aiSearches.venueId, venueId), eq(aiSearches.kind, 'search'), eq(aiSearches.status, 'succeeded')))
       .orderBy(desc(aiSearches.startedAt), desc(aiSearches.id))
       .limit(1),
   ] as const

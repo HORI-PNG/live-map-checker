@@ -3,6 +3,7 @@
 import { env, exports, waitUntil } from 'cloudflare:workers'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
+import { runVenueClassification } from '../ai/classify'
 import { getAiProvider } from '../ai/provider'
 import { runVenueAiSearch } from '../ai/search'
 import { purgePages } from '../cache'
@@ -24,5 +25,21 @@ export const searchVenueWithAi = createServerFn({ method: 'POST' })
     const outcome = await search
     // 新しい結果が入ったら、この拠点に保存した会場ページの HTML を消す（次に開いた人にすぐ見えるように）
     if (outcome.status === 'searched') await purgePages(`/venues/${data.slug}`, env.CF_VERSION_METADATA.id)
+    return outcome
+  })
+
+/** ルールで決まらなかったタイトルのライブ判定（会場を開いたときだけ。結果は classification_cache に保存） */
+export const classifyVenueWithAi = createServerFn({ method: 'POST' })
+  .validator(input)
+  .handler(async ({ data }) => {
+    const run = runVenueClassification(getDb(), env.DB, data.slug, {
+      provider: () => getAiProvider(env as Env & { ANTHROPIC_API_KEY?: string }),
+      budgetMicros: Math.round(Number(env.AI_DAILY_BUDGET_USD) * 1_000_000) || 0,
+    })
+    waitUntil(run.catch(() => {}))
+    const outcome = await run
+    if (outcome.status === 'classified' && outcome.changed > 0) {
+      await purgePages(`/venues/${data.slug}`, env.CF_VERSION_METADATA.id)
+    }
     return outcome
   })

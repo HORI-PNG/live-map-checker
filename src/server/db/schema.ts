@@ -13,6 +13,8 @@ export const SOURCE_KINDS = ['scrape', 'ai'] as const
 export const EVENT_CATEGORIES = ['live', 'non_live', 'unknown'] as const
 export const CLASSIFIED_BY = ['venue_label', 'rule', 'ai', 'manual'] as const
 export const AI_SEARCH_STATUSES = ['running', 'succeeded', 'failed', 'budget_exceeded'] as const
+/** AI の呼び出しの種類: 会場の公演の検索 / ルールで決まらなかったタイトルのライブ判定 */
+export const AI_TASK_KINDS = ['search', 'classify'] as const
 export const FETCH_RUN_STATUSES = ['success', 'failed', 'skipped'] as const
 export const FETCH_ERROR_KINDS = ['network', 'http', 'robots', 'parse', 'empty', 'drop'] as const
 export const FETCH_TRIGGERS = ['cron', 'manual'] as const
@@ -92,6 +94,7 @@ export const aiSearches = sqliteTable(
       .notNull()
       .references(() => venues.id),
     status: text('status', { enum: AI_SEARCH_STATUSES }).notNull(),
+    kind: text('kind', { enum: AI_TASK_KINDS }).notNull().default('search'),
     provider: text('provider').notNull(),
     model: text('model').notNull(),
     startedAt: text('started_at').notNull().default(nowIso),
