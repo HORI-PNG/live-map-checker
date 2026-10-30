@@ -8,7 +8,7 @@ import { aliased as as } from '../db/alias'
 import type { Db } from '../db/client'
 import { aiSearches, events, prefectures, venues } from '../db/schema'
 import { EVENT_WINDOW_DAYS } from '../repo/geo'
-import { claimAiTask, finishAiTask, recordSkippedAiTask } from './ledger'
+import { claimOrSkip, finishAiTask, recordSkippedAiTask } from './ledger'
 import { AI_RESULT_TTL_MS, aiStateQueries, aiView, needsAi, RUNNING_TIMEOUT_MS } from './state'
 import { AiError, type AiProvider, type AiUsage, type EventCandidate, eventCandidateSchema } from './types'
 import type { SourceCheck, SourceItem } from './verify'
@@ -137,7 +137,7 @@ export async function runVenueAiSearch(
 
   // 予算の確認は省略しない（CLAUDE.md）。行の確保と同じ1文で確かめる（ledger.ts）
   const estimate = provider.estimateCostMicros()
-  const searchId = await claimAiTask(d1, {
+  const searchId = await claimOrSkip(d1, {
     venueId: venue.id,
     kind: 'search',
     provider: provider.name,
@@ -147,23 +147,10 @@ export async function runVenueAiSearch(
     estimateMicros: estimate,
     dayStartIso: dayStart,
     budgetMicros: deps.budgetMicros,
+    spentMicros: spentRows[0]?.total ?? 0,
   })
-  if (searchId === null) {
-    // 作れなかった理由: 予算を超えるなら記録する（しばらくは検索し直さない）。そうでなければ別の人が検索中
-    if ((spentRows[0]?.total ?? 0) + estimate > deps.budgetMicros) {
-      await recordSkippedAiTask(d1, {
-        venueId: venue.id,
-        kind: 'search',
-        status: 'budget_exceeded',
-        provider: provider.name,
-        model: provider.model,
-        nowIso,
-        error: null,
-      })
-      return { status: 'unavailable', reason: 'budget' }
-    }
-    return { status: 'running' }
-  }
+  if (searchId === 'budget') return { status: 'unavailable', reason: 'budget' }
+  if (searchId === 'running') return { status: 'running' }
   const fail = async (usage: AiUsage, message: string) => {
     await finishAiTask(d1, searchId, {
       status: 'failed',

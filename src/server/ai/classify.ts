@@ -1,18 +1,18 @@
 // ルールで決まらなかった（unknown）タイトルの AI によるライブ判定（docs/plan.md 5章）。
 // 会場を開いたときに、その会場のこれからの公演について行う。結果は classification_cache に保存し、同じタイトルを二度聞かない
-import { and, desc, eq, gte, inArray, type SQL, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from 'drizzle-orm'
 import { jstDayStartIso, todayJst } from '@/shared/dates'
 import { titleHashOf } from '../classify/rules'
 import type { Db } from '../db/client'
 import { aiSearches, classificationCache, events, venues } from '../db/schema'
-import { claimAiTask, finishAiTask, recordSkippedAiTask } from './ledger'
+import { claimOrSkip, finishAiTask, recordSkippedAiTask } from './ledger'
 import { RETRY_AFTER_MS, RUNNING_TIMEOUT_MS } from './state'
 import { AiError, type AiProvider, type AiUsage, classificationSchema } from './types'
 
 /** 1回に AI に聞くタイトルの上限（1文あたりの値 100 個・D1 のクエリ 50 に収める） */
 export const MAX_TITLES = 40
-/** 判定のあと、残ったタイトル（AI が答えなかったもの）を聞き直すまでの間 */
-const RETRY_AFTER_SUCCESS_MS = 6 * 60 * 60 * 1000
+/** 判定のあと、残ったタイトル（上限を超えた分・AI が答えなかったもの）を聞くまでの間 */
+const RETRY_AFTER_SUCCESS_MS = 30 * 60 * 1000
 /** 公演の更新を1文にまとめるタイトルの数（1件あたり値 5 個） */
 const TITLES_PER_UPDATE = 15
 /** classification_cache の保存を1文にまとめる行数（1行あたり値 6 個） */
@@ -41,6 +41,15 @@ export function classifyPending(unknownCount: number, latest: Row | null, now: D
   return age > RETRY_AFTER_MS
 }
 
+function latestClassifyQuery(db: Db, venueId: number | SQL<number>) {
+  return db
+    .select({ status: aiSearches.status, startedAt: aiSearches.startedAt })
+    .from(aiSearches)
+    .where(and(eq(aiSearches.venueId, venueId), eq(aiSearches.kind, 'classify')))
+    .orderBy(desc(aiSearches.startedAt), desc(aiSearches.id))
+    .limit(1)
+}
+
 /** 会場の判定待ちの件数と、最後のライブ判定の記録（ほかの読み出しと同じ batch に入れる） */
 export function classifyStateQueries(db: Db, venueId: number | SQL<number>, today: string) {
   return [
@@ -48,20 +57,17 @@ export function classifyStateQueries(db: Db, venueId: number | SQL<number>, toda
       .select({ n: sql<number>`count(*)`.mapWith(Number) })
       .from(events)
       .where(unknownEventsOf(venueId, today)),
-    db
-      .select({ status: aiSearches.status, startedAt: aiSearches.startedAt })
-      .from(aiSearches)
-      .where(and(eq(aiSearches.venueId, venueId), eq(aiSearches.kind, 'classify')))
-      .orderBy(desc(aiSearches.startedAt), desc(aiSearches.id))
-      .limit(1),
+    latestClassifyQuery(db, venueId),
   ] as const
 }
 
+/** 判定待ちの公演（手動で「unknown」のままにしたものは除く。更新できず何度も聞き直すことになるため） */
 function unknownEventsOf(venueId: number | SQL<number>, today: string) {
   return and(
     eq(events.venueId, venueId),
     eq(events.isActive, true),
     eq(events.category, 'unknown'),
+    or(isNull(events.classifiedBy), ne(events.classifiedBy, 'manual')),
     gte(events.date, today),
   )
 }
@@ -113,13 +119,15 @@ export async function runVenueClassification(
       .select({ id: venues.id, name: venues.name })
       .from(venues)
       .where(and(eq(venues.slug, venueSlug), eq(venues.isActive, true))),
+    // 日付の近い公演から
     db
-      .selectDistinct({ title: events.title })
+      .select({ title: events.title })
       .from(events)
       .where(unknownEventsOf(venueId, today))
-      .orderBy(events.title)
+      .groupBy(events.title)
+      .orderBy(sql`min(${events.date})`, events.title)
       .limit(MAX_TITLES),
-    classifyStateQueries(db, venueId, today)[1],
+    latestClassifyQuery(db, venueId),
     db
       .select({ total: sql<number>`coalesce(sum(${aiSearches.costUsdMicros}), 0)`.mapWith(Number) })
       .from(aiSearches)
@@ -127,7 +135,11 @@ export async function runVenueClassification(
   ])
   const venue = venueRows[0]
   if (!venue || titleRows.length === 0) return { status: 'nothing' }
-  if (!classifyPending(titleRows.length, latestRows[0] ?? null, now)) return { status: 'skipped' }
+  const latest = latestRows[0] ?? null
+  if (latest?.status === 'running' && now.getTime() - Date.parse(latest.startedAt) <= RUNNING_TIMEOUT_MS) {
+    return { status: 'running' }
+  }
+  if (!classifyPending(titleRows.length, latest, now)) return { status: 'skipped' }
 
   // ほかの会場で判定済み（または手動で決めた）タイトルは、AI に聞かずにそれを使う
   const titles = titleRows.map((r) => r.title)
@@ -171,7 +183,7 @@ export async function runVenueClassification(
 
   // 予算の確認は省略しない（CLAUDE.md）。検索と同じ日次上限に含める
   const estimate = provider.estimateClassifyMicros(remaining.length)
-  const taskId = await claimAiTask(d1, {
+  const taskId = await claimOrSkip(d1, {
     venueId: venue.id,
     kind: 'classify',
     provider: provider.name,
@@ -181,22 +193,11 @@ export async function runVenueClassification(
     estimateMicros: estimate,
     dayStartIso: dayStart,
     budgetMicros: deps.budgetMicros,
+    spentMicros: spentRows[0]?.total ?? 0,
   })
-  if (taskId === null) {
+  if (typeof taskId !== 'number') {
     if (decisions.length > 0) await d1.batch(eventUpdates(d1, venue.id, decisions))
-    if ((spentRows[0]?.total ?? 0) + estimate > deps.budgetMicros) {
-      await recordSkippedAiTask(d1, {
-        venueId: venue.id,
-        kind: 'classify',
-        status: 'budget_exceeded',
-        provider: provider.name,
-        model: provider.model,
-        nowIso,
-        error: null,
-      })
-      return { status: 'unavailable', reason: 'budget' }
-    }
-    return { status: 'running' }
+    return taskId === 'budget' ? { status: 'unavailable', reason: 'budget' } : { status: 'running' }
   }
 
   let usage: AiUsage
@@ -259,6 +260,20 @@ export async function runVenueClassification(
       error: null,
     }),
   )
-  await d1.batch(writes)
+  try {
+    await d1.batch(writes)
+  } catch (error) {
+    // 保存に失敗しても、AI にかかった費用は記録する
+    await finishAiTask(d1, taskId, {
+      status: 'failed',
+      finished: current(),
+      expires: null,
+      usage,
+      candidates: remaining.length,
+      verified: 0,
+      error: `保存に失敗: ${String(error)}`,
+    }).run()
+    return { status: 'unavailable', reason: 'error' }
+  }
   return { status: 'classified', changed: decisions.length }
 }

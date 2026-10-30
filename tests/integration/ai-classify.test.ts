@@ -70,7 +70,8 @@ describe('AI によるライブ判定（ルールで決まらなかったタイ�
       now: NOW,
     })
     expect(outcome).toEqual({ status: 'classified', changed: 3 })
-    expect(calls).toEqual([['ダミー スペシャルナイト', '第7回むしゃんよかバンド決定戦']])
+    // 日付の近い順
+    expect(calls).toEqual([['第7回むしゃんよかバンド決定戦', 'ダミー スペシャルナイト']])
     expect(await categories()).toEqual([
       { title: 'ダミー スペシャルナイト', category: 'live', classified_by: 'ai' },
       { title: 'ダミー 手動で決めたタイトル', category: 'non_live', classified_by: 'manual' },
@@ -134,6 +135,31 @@ describe('AI によるライブ判定（ルールで決まらなかったタイ�
     })
   })
 
+  it('ほかの人が判定中なら running を返す（画面は終わるまで待つ）', async () => {
+    await env.DB.prepare(
+      `INSERT INTO ai_searches (venue_id, kind, status, provider, model, started_at)
+       VALUES ((SELECT id FROM venues WHERE slug = '${VENUE}'), 'classify', 'running', 'mock', 'mock', ?1)`,
+    )
+      .bind(new Date(NOW.getTime() - 30_000).toISOString())
+      .run()
+    const { calls, provider } = counted()
+    expect(
+      await runVenueClassification(db, env.DB, VENUE, { provider: () => provider, budgetMicros: 1_000_000, now: NOW }),
+    ).toEqual({ status: 'running' })
+    expect(calls).toHaveLength(0)
+  })
+
+  it('手動で unknown のままにした公演は判定待ちに数えない', async () => {
+    await env.DB.prepare(
+      "UPDATE events SET classified_by = 'manual' WHERE fingerprint IN ('test:1', 'test:2', 'test:3')",
+    ).run()
+    const { calls, provider } = counted()
+    expect(
+      await runVenueClassification(db, env.DB, VENUE, { provider: () => provider, budgetMicros: 1_000_000, now: NOW }),
+    ).toEqual({ status: 'nothing' })
+    expect(calls).toHaveLength(0)
+  })
+
   it('ライブ判定の記録は、AI 検索の24時間キャッシュや検索中の判定に影響しない', async () => {
     const venue = 'mizuho-paypay-dome-fukuoka'
     await env.DB.prepare(
@@ -162,14 +188,14 @@ describe('AI によるライブ判定（ルールで決まらなかったタイ�
 describe('classifyPending', () => {
   const now = new Date('2026-11-10T03:00:00Z')
   const ago = (ms: number) => new Date(now.getTime() - ms).toISOString()
-  it('判定待ちがあり、実行中・失敗の直後・成功から6時間以内でなければ聞いてよい', () => {
+  it('判定待ちがあり、実行中・失敗や成功の直後（30分）でなければ聞いてよい', () => {
     expect(classifyPending(0, null, now)).toBe(false)
     expect(classifyPending(3, null, now)).toBe(true)
     expect(classifyPending(3, { status: 'running', startedAt: ago(60_000) }, now)).toBe(false)
     expect(classifyPending(3, { status: 'running', startedAt: ago(10 * 60_000) }, now)).toBe(true)
     expect(classifyPending(3, { status: 'failed', startedAt: ago(10 * 60_000) }, now)).toBe(false)
     expect(classifyPending(3, { status: 'budget_exceeded', startedAt: ago(31 * 60_000) }, now)).toBe(true)
-    expect(classifyPending(3, { status: 'succeeded', startedAt: ago(3600_000) }, now)).toBe(false)
-    expect(classifyPending(3, { status: 'succeeded', startedAt: ago(7 * 3600_000) }, now)).toBe(true)
+    expect(classifyPending(3, { status: 'succeeded', startedAt: ago(10 * 60_000) }, now)).toBe(false)
+    expect(classifyPending(3, { status: 'succeeded', startedAt: ago(31 * 60_000) }, now)).toBe(true)
   })
 })

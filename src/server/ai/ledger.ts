@@ -101,3 +101,28 @@ export async function recordSkippedAiTask(
     .bind(r.venueId, r.kind, r.status, r.provider, r.model, r.nowIso, r.error?.slice(0, 500) ?? null)
     .run()
 }
+
+/**
+ * 実行の行を作る。作れなかったときは理由を返す: 予算を超えるなら budget_exceeded を記録して 'budget'、
+ * そうでなければ同じ会場・同じ種類を実行中の人がいるので 'running'
+ */
+export async function claimOrSkip(
+  d1: D1Database,
+  c: ClaimInput & { spentMicros: number },
+): Promise<number | 'running' | 'budget'> {
+  const id = await claimAiTask(d1, c)
+  if (id !== null) return id
+  if (c.spentMicros + c.estimateMicros > c.budgetMicros) {
+    await recordSkippedAiTask(d1, {
+      venueId: c.venueId,
+      kind: c.kind,
+      status: 'budget_exceeded',
+      provider: c.provider,
+      model: c.model,
+      nowIso: c.nowIso,
+      error: null,
+    })
+    return 'budget'
+  }
+  return 'running'
+}

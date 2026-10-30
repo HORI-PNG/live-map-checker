@@ -1,5 +1,5 @@
 // ルールで決まらなかったタイトルの AI によるライブ判定を、会場を開いたときに始める（docs/plan.md 5章）。
-// 表示は変えずに裏で行い、終わったら画面のデータを読み直す（ほかの人が判定し終えていた場合も読み直す）
+// 表示は変えずに裏で行い、判定が変わったとき・ほかの人の判定を待ち終えたときだけ画面のデータを読み直す
 import { useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useEffect } from 'react'
@@ -16,14 +16,22 @@ export function useAiClassify(slug: string, pending: boolean) {
     if (!pending) return
     let cancelled = false
     const run = async () => {
+      let waited = false
       for (let i = 0; i < MAX_POLLS; i++) {
         const result = await classify({ data: { slug } }).catch(() => null)
         if (cancelled || !result) return
-        if (result.status !== 'running') break
+        if (result.status === 'classified') {
+          if (result.changed > 0) await router.invalidate()
+          return
+        }
+        if (result.status !== 'running') {
+          if (waited) await router.invalidate()
+          return
+        }
+        waited = true
         await new Promise((resolve) => setTimeout(resolve, POLL_MS))
         if (cancelled) return
       }
-      await router.invalidate()
     }
     void run()
     return () => {
