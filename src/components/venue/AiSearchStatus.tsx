@@ -2,13 +2,13 @@
 // 終わったら画面のデータを読み直す。検索中・失敗・予算超過・最終確認の日時を出す
 import { useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { AiView } from '@/server/ai/state'
 import { searchVenueWithAi } from '@/server/functions/ai'
 
-/** 別の人が検索中のとき、終わったかを確かめる間隔と回数（最大 約90秒） */
+/** 別の人が検索中のとき、終わったかを確かめる間隔と回数（最大 約5分。state.ts の RUNNING_TIMEOUT_MS） */
 const POLL_MS = 2_000
-const MAX_POLLS = 45
+const MAX_POLLS = 150
 
 function formatCheckedAt(iso: string): string {
   return new Date(iso).toLocaleString('ja-JP', {
@@ -20,35 +20,52 @@ function formatCheckedAt(iso: string): string {
   })
 }
 
-export function isAiSearching(ai: AiView): boolean {
-  return ai.needed && (ai.status === 'due' || ai.status === 'running')
-}
-
-export function AiSearchStatus({ slug, ai }: { slug: string; ai: AiView }) {
+/**
+ * AI 検索を始めて、終わったら画面のデータを読み直す。searching: 検索中の表示を出すか。
+ * 通信に失敗した・待ちきれなかったときは failed にして、検索中の表示を止める
+ */
+export function useAiSearch(slug: string, ai: AiView) {
   const router = useRouter()
   const search = useServerFn(searchVenueWithAi)
-  const searching = isAiSearching(ai)
+  // 失敗は会場ごと（同じ画面のまま別の会場へ移ったときに持ち越さない）
+  const [failedSlug, setFailedSlug] = useState<string | null>(null)
+  const failed = failedSlug === slug
+  const pending = ai.needed && (ai.status === 'due' || ai.status === 'running')
 
   useEffect(() => {
-    if (!searching) return
+    if (!pending) return
     let cancelled = false
     const run = async () => {
-      for (let i = 0; i < MAX_POLLS; i++) {
+      let done = false
+      for (let i = 0; i < MAX_POLLS && !done; i++) {
         const result = await search({ data: { slug } }).catch(() => null)
         if (cancelled) return
-        if (result?.status !== 'running') break
-        await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+        if (!result) break
+        if (result.status !== 'running') done = true
+        else await new Promise((resolve) => setTimeout(resolve, POLL_MS))
         if (cancelled) return
       }
+      if (!done) setFailedSlug(slug)
       await router.invalidate()
     }
     void run()
     return () => {
       cancelled = true
     }
-  }, [searching, slug, search, router])
+  }, [pending, slug, search, router])
 
+  return { searching: pending && !failed, failed: pending && failed }
+}
+
+export function AiSearchStatus({ ai, searching, failed }: { ai: AiView; searching: boolean; failed: boolean }) {
   if (!ai.needed) return null
+  if (failed) {
+    return (
+      <p role="status" className="glass m-0 rounded-card p-4 text-sm leading-relaxed text-fg-muted">
+        AI による検索に失敗しました。時間をおいて開き直してください。
+      </p>
+    )
+  }
   if (searching) {
     return (
       <div

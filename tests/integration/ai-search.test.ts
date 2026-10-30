@@ -217,6 +217,42 @@ describe('AI 検索（会場を開いたとき）', () => {
     expect((await aiEvents()).map((e) => e.title)).toEqual(['MOCK BAND ONE-MAN SHOW'])
   })
 
+  it('検索中の分（見積もり額の予約）も今日の使用額に数え、同時に開かれても上限を超えて走り出さない', async () => {
+    // 別の会場が検索中（見積もり $0.95 を予約済み）
+    await env.DB.prepare(
+      `INSERT INTO ai_searches (venue_id, status, provider, model, started_at, cost_usd_micros)
+       VALUES ((SELECT id FROM venues WHERE slug = 'kitakyushu-media-dome'), 'running', 'test', 'test', ?1, 950000)`,
+    )
+      .bind(new Date(NOW.getTime() - 30_000).toISOString())
+      .run()
+    const { deps: base, calls } = deps()
+    const d = { ...base, provider: () => ({ ...base.provider(), estimateCostMicros: () => 100_000 }) }
+    expect(await runVenueAiSearch(db, env.DB, VENUE, d)).toEqual({ status: 'unavailable', reason: 'budget' })
+    expect(calls.search).toBe(0)
+  })
+
+  it('出典を1件も取得できなかったときは失敗として扱い、前回の AI の公演を消さない', async () => {
+    await runVenueAiSearch(db, env.DB, VENUE, deps().deps)
+    await env.DB.prepare("UPDATE ai_searches SET expires_at = '2026-11-10T00:00:00Z' WHERE provider = 'mock'").run()
+    const { deps: base } = deps({ now: later(25) })
+    const down = {
+      ...base,
+      verify: async (url: string, items: { artist: string; date: string }[]) => ({
+        url,
+        httpStatus: 503,
+        error: null,
+        results: items.map(() => ({ artistFound: false, dateFound: false })),
+      }),
+    }
+    expect(await runVenueAiSearch(db, env.DB, VENUE, down)).toEqual({ status: 'unavailable', reason: 'error' })
+    expect((await aiEvents()).map((e) => e.is_active)).toEqual([1, 1])
+    const last = await query<{ status: string; error: string }>(
+      "SELECT status, error FROM ai_searches WHERE provider = 'mock' ORDER BY id DESC LIMIT 1",
+    )
+    expect(last[0].status).toBe('failed')
+    expect(last[0].error).toContain('出典を1件も取得できませんでした')
+  })
+
   it('自動取得が成功している会場では検索しない', async () => {
     await env.DB.prepare(
       `UPDATE venue_fetch_state SET last_success_at = ?1, consecutive_failures = 0

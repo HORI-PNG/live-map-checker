@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { z } from 'zod'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ChevronRightIcon } from '@/components/nav/icons'
-import { AiSearchStatus, isAiSearching } from '@/components/venue/AiSearchStatus'
+import { AiSearchStatus, useAiSearch } from '@/components/venue/AiSearchStatus'
 import { EventList } from '@/components/venue/EventList'
 import { ModeToggle } from '@/components/venue/ModeToggle'
 import { fetchVenue } from '@/server/functions/geo'
@@ -22,6 +22,7 @@ export const Route = createFileRoute('/venues/$venue')({
 function VenuePage() {
   const { region, prefecture, venue, otherVenues, events, ai } = Route.useLoaderData()
   const mode = Route.useSearch().mode ?? 'all'
+  const { searching, failed } = useAiSearch(venue.slug, ai)
   return (
     <>
       <PageHeader
@@ -91,8 +92,8 @@ function VenuePage() {
           <div className="flex flex-col gap-3.5 px-4 pb-6 lg:px-0">
             {mode === 'all' ? (
               <>
-                <AiSearchStatus slug={venue.slug} ai={ai} />
-                {events.length > 0 ? <EventList events={events} /> : !isAiSearching(ai) && <EmptyState />}
+                <AiSearchStatus ai={ai} searching={searching} failed={failed} />
+                {events.length > 0 ? <EventList events={events} /> : !searching && <EmptyState />}
               </>
             ) : (
               <FavoritesPlaceholder />

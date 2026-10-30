@@ -1,5 +1,5 @@
 // 会場を開いたときの AI 検索（docs/plan.md 4.2〜4.4）。
-// 24時間キャッシュ → 二重起動の防止 → 予算の確認 → 検索 → 出典の検証 → 保存、の順に行う
+// 24時間キャッシュ → 二重起動の防止と予算の確認（1文で） → 検索 → 出典の検証 → 保存、の順に行う
 import { and, eq, gte, lte, type SQL, sql } from 'drizzle-orm'
 import { addDays, jstDayStartIso, todayJst } from '@/shared/dates'
 import { fingerprintOf } from '@/shared/fingerprint'
@@ -12,9 +12,14 @@ import { AI_RESULT_TTL_MS, aiStateQueries, aiView, needsAi, RUNNING_TIMEOUT_MS }
 import { AiError, type AiProvider, type AiUsage, type EventCandidate, eventCandidateSchema } from './types'
 import type { SourceCheck, SourceItem } from './verify'
 
-/** 1回の検索で保存する公演・取得する出典の上限（D1 のクエリ 50・サブリクエスト 50 に収める） */
+/**
+ * 1回の検索で保存する公演・取得する出典の上限。最後の書き込みは「公演 30 + 検証の記録 3 + 2」= 35 文、
+ * 最初の読み出し 6 文・行の確保 1 文と合わせて D1 のクエリ 50 に収める（出典の取得もサブリクエスト 50 に収める）
+ */
 const MAX_CANDIDATES = 30
 const MAX_SOURCES = 20
+/** 検証の記録を1文にまとめる行数（1文あたりの値は 100 個まで。1行 7 個） */
+const VERIFICATION_ROWS_PER_STATEMENT = 14
 
 export type SearchDeps = {
   /** AI の提供元（キーが無いなどで使えなければ AiError('unavailable') を投げる） */
@@ -33,10 +38,13 @@ export type SearchOutcome =
 const INSERT_FINISHED_SQL = `INSERT INTO ai_searches (venue_id, status, provider, model, started_at, finished_at, error)
   VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6)`
 
-// 同じ会場で検索中（2分以内に始まった running）が無いときだけ行を作る。作れなければ別の人が検索中
-const CLAIM_SQL = `INSERT INTO ai_searches (venue_id, status, provider, model, started_at)
-  SELECT ?1, 'running', ?2, ?3, ?4
+// 行を作るのは「同じ会場で検索中（running）が無い」かつ「今日の合計（検索中の分の見積もりを含む）＋見積もり ≦ 上限」の
+// ときだけ。1文で確かめるので、同時に開かれても上限を超えて走り出さない。
+// 見積もり額を先に cost_usd_micros に入れておき（予約）、終わったら実際の額で上書きする。途中で止まっても予算に数えられる
+const CLAIM_SQL = `INSERT INTO ai_searches (venue_id, status, provider, model, started_at, cost_usd_micros)
+  SELECT ?1, 'running', ?2, ?3, ?4, ?6
   WHERE NOT EXISTS (SELECT 1 FROM ai_searches WHERE venue_id = ?1 AND status = 'running' AND started_at > ?5)
+    AND (SELECT coalesce(sum(cost_usd_micros), 0) FROM ai_searches WHERE started_at >= ?7) + ?6 <= ?8
   RETURNING id`
 
 const FINISH_SQL = `UPDATE ai_searches SET status = ?2, finished_at = ?3, expires_at = ?4, input_tokens = ?5,
@@ -59,8 +67,10 @@ const UPSERT_AI_EVENT_SQL = `INSERT INTO events
 const DEACTIVATE_OLD_AI_SQL = `UPDATE events SET is_active = 0
   WHERE venue_id = ?1 AND source_kind = 'ai' AND date >= ?2 AND (ai_search_id IS NULL OR ai_search_id <> ?3)`
 
-const INSERT_VERIFICATION_SQL = `INSERT INTO ai_verifications
-  (ai_search_id, url, http_status, artist_found, date_found, verdict, checked_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+function insertVerificationsSql(rows: number): string {
+  const values = Array.from({ length: rows }, () => '(?, ?, ?, ?, ?, ?, ?)').join(', ')
+  return `INSERT INTO ai_verifications (ai_search_id, url, http_status, artist_found, date_found, verdict, checked_at) VALUES ${values}`
+}
 
 export async function runVenueAiSearch(
   db: Db,
@@ -75,6 +85,7 @@ export async function runVenueAiSearch(
   const nowIso = now.toISOString()
   const today = todayJst(now)
   const to = addDays(today, EVENT_WINDOW_DAYS)
+  const dayStart = jstDayStartIso(today)
   const venueId: SQL<number> = sql<number>`(SELECT id FROM ${venues} WHERE ${venues.slug} = ${venueSlug})`
 
   const [venueRows, stateRows, latestRows, successRows, spentRows, scrapedRows] = await db.batch([
@@ -92,11 +103,11 @@ export async function runVenueAiSearch(
       .innerJoin(prefectures, eq(prefectures.id, venues.prefectureId))
       .where(and(eq(venues.slug, venueSlug), eq(venues.isActive, true))),
     ...aiStateQueries(db, venueId),
-    // 今日（JST）の AI の使用額（全会場の合計）
+    // 今日（JST）の AI の使用額（全会場の合計。検索中の分は見積もり額）
     db
       .select({ total: sql<number>`coalesce(sum(${aiSearches.costUsdMicros}), 0)`.mapWith(Number) })
       .from(aiSearches)
-      .where(gte(aiSearches.startedAt, jstDayStartIso(today))),
+      .where(gte(aiSearches.startedAt, dayStart)),
     // 取得済みの公演（AI の候補と重なるものは保存しない）
     db
       .select({ date: events.date, artistNorm: events.artistNorm, title: events.title })
@@ -130,19 +141,38 @@ export async function runVenueAiSearch(
     await recordFinished(d1, venue.id, 'failed', 'none', 'none', nowIso, String(error))
     return { status: 'unavailable', reason: 'error' }
   }
-  // 予算の確認は省略しない（CLAUDE.md）。当日の合計＋1回分の見積もりが上限を超えるなら呼ばない
-  const estimate = provider.estimateCostMicros()
-  if ((spentRows[0]?.total ?? 0) + estimate > deps.budgetMicros) {
-    await recordFinished(d1, venue.id, 'budget_exceeded', provider.name, provider.model, nowIso, null)
-    return { status: 'unavailable', reason: 'budget' }
-  }
 
+  // 予算の確認は省略しない（CLAUDE.md）。行の確保と同じ1文で確かめる
+  const estimate = provider.estimateCostMicros()
   const claimed = await d1
     .prepare(CLAIM_SQL)
-    .bind(venue.id, provider.name, provider.model, nowIso, new Date(now.getTime() - RUNNING_TIMEOUT_MS).toISOString())
+    .bind(
+      venue.id,
+      provider.name,
+      provider.model,
+      nowIso,
+      new Date(now.getTime() - RUNNING_TIMEOUT_MS).toISOString(),
+      estimate,
+      dayStart,
+      deps.budgetMicros,
+    )
     .first<{ id: number }>()
-  if (!claimed) return { status: 'running' }
+  if (!claimed) {
+    // 作れなかった理由: 予算を超えるなら記録する（しばらくは検索し直さない）。そうでなければ別の人が検索中
+    if ((spentRows[0]?.total ?? 0) + estimate > deps.budgetMicros) {
+      await recordFinished(d1, venue.id, 'budget_exceeded', provider.name, provider.model, nowIso, null)
+      return { status: 'unavailable', reason: 'budget' }
+    }
+    return { status: 'running' }
+  }
   const searchId = claimed.id
+  const fail = async (usage: AiUsage, message: string) => {
+    await d1
+      .prepare(FINISH_SQL)
+      .bind(...finishValues(searchId, 'failed', current(), null, usage, 0, 0, message))
+      .run()
+    return { status: 'unavailable', reason: 'error' } as const
+  }
 
   let raw: unknown[]
   let usage: AiUsage
@@ -158,46 +188,46 @@ export async function runVenueAiSearch(
     }))
   } catch (error) {
     const e = error instanceof AiError ? error : new AiError('api', String(error))
-    await d1
-      .prepare(FINISH_SQL)
-      .bind(...finishValues(searchId, 'failed', current(), null, e.usage, 0, 0, `${e.kind}: ${e.message}`))
-      .run()
-    return { status: 'unavailable', reason: 'error' }
+    return fail(e.usage, `${e.kind}: ${e.message}`)
   }
 
-  const candidates = pickCandidates(raw, venue.id, today, to, scrapedRows)
-  const groups = groupBySource(candidates)
-  const checks = await Promise.all(
-    groups.map(([url, list]) =>
-      deps
-        .verify(
-          url,
-          list.map((c) => ({ artist: c.artist, date: c.date })),
-        )
-        .catch(
-          (error): SourceCheck => ({
+  try {
+    const candidates = pickCandidates(raw, venue.id, today, to, scrapedRows)
+    const groups = groupBySource(candidates)
+    const checks = await Promise.all(
+      groups.map(([url, list]) =>
+        deps
+          .verify(
             url,
-            httpStatus: null,
-            error: String(error).slice(0, 300),
-            results: list.map(() => ({ artistFound: false, dateFound: false })),
-          }),
-        ),
-    ),
-  )
+            list.map((c) => ({ artist: c.artist, date: c.date })),
+          )
+          .catch(
+            (error): SourceCheck => ({
+              url,
+              httpStatus: null,
+              error: String(error).slice(0, 300),
+              results: list.map(() => ({ artistFound: false, dateFound: false })),
+            }),
+          ),
+      ),
+    )
+    // 出典を1件も取得できなかった（相手のサイトの障害など）ときは、前回の結果を消さずに失敗として扱う
+    if (groups.length > 0 && checks.every((c) => c.httpStatus !== 200)) {
+      return fail(usage, `出典を1件も取得できませんでした（${checks.length} 件）`)
+    }
 
-  const finished = current()
-  const finishedIso = finished.toISOString()
-  const writes: D1PreparedStatement[] = []
-  const upsert = d1.prepare(UPSERT_AI_EVENT_SQL)
-  const verification = d1.prepare(INSERT_VERIFICATION_SQL)
-  let verified = 0
-  groups.forEach(([url, list], i) => {
-    const check = checks[i]
-    list.forEach((c, j) => {
-      const result = check.results[j] ?? { artistFound: false, dateFound: false }
-      const ok = result.artistFound && result.dateFound
-      writes.push(
-        verification.bind(
+    const finished = current()
+    const finishedIso = finished.toISOString()
+    const writes: D1PreparedStatement[] = []
+    const verificationRows: unknown[][] = []
+    const upsert = d1.prepare(UPSERT_AI_EVENT_SQL)
+    let verified = 0
+    groups.forEach(([url, list], i) => {
+      const check = checks[i]
+      list.forEach((c, j) => {
+        const result = check.results[j] ?? { artistFound: false, dateFound: false }
+        const ok = result.artistFound && result.dateFound
+        verificationRows.push([
           searchId,
           url,
           check.httpStatus,
@@ -205,49 +235,58 @@ export async function runVenueAiSearch(
           result.dateFound ? 1 : 0,
           check.error ? 'error' : ok ? 'verified' : 'rejected',
           finishedIso,
-        ),
-      )
-      if (!ok) return
-      verified++
-      writes.push(
-        upsert.bind(
-          venue.id,
-          c.title,
-          c.artist,
-          normalizeText(c.artist),
-          c.tour,
-          c.date,
-          c.open,
-          c.start,
-          url,
-          new URL(url).hostname,
-          fingerprintOf(venue.id, c.date, c.start, c.title),
-          searchId,
-          finishedIso,
-        ),
-      )
+        ])
+        if (!ok) return
+        verified++
+        writes.push(
+          upsert.bind(
+            venue.id,
+            c.title,
+            c.artist,
+            normalizeText(c.artist),
+            c.tour,
+            c.date,
+            c.open,
+            c.start,
+            url,
+            new URL(url).hostname,
+            c.fingerprint,
+            searchId,
+            finishedIso,
+          ),
+        )
+      })
     })
-  })
-  writes.push(d1.prepare(DEACTIVATE_OLD_AI_SQL).bind(venue.id, today, searchId))
-  writes.push(
-    d1
-      .prepare(FINISH_SQL)
-      .bind(
-        ...finishValues(
-          searchId,
-          'succeeded',
-          finished,
-          new Date(finished.getTime() + AI_RESULT_TTL_MS),
-          usage,
-          raw.length,
-          verified,
-          null,
+    for (let i = 0; i < verificationRows.length; i += VERIFICATION_ROWS_PER_STATEMENT) {
+      const chunk = verificationRows.slice(i, i + VERIFICATION_ROWS_PER_STATEMENT)
+      writes.push(d1.prepare(insertVerificationsSql(chunk.length)).bind(...chunk.flat()))
+    }
+    writes.push(d1.prepare(DEACTIVATE_OLD_AI_SQL).bind(venue.id, today, searchId))
+    writes.push(
+      d1
+        .prepare(FINISH_SQL)
+        .bind(
+          ...finishValues(
+            searchId,
+            'succeeded',
+            finished,
+            new Date(finished.getTime() + AI_RESULT_TTL_MS),
+            usage,
+            raw.length,
+            verified,
+            null,
+          ),
         ),
-      ),
-  )
-  await d1.batch(writes)
-  return { status: 'searched', candidates: raw.length, verified }
+    )
+    await d1.batch(writes)
+    return { status: 'searched', candidates: raw.length, verified }
+  } catch (error) {
+    // 検証や保存で失敗しても、AI にかかった費用は記録する
+    return fail(usage, `保存に失敗: ${String(error)}`)
+  }
 }
+
+type PickedCandidate = EventCandidate & { fingerprint: string }
 
 /** 形の正しい候補のうち、期間内で、取得済みの公演と重ならないもの（同じ鍵は1件に） */
 function pickCandidates(
@@ -256,31 +295,36 @@ function pickCandidates(
   from: string,
   to: string,
   scraped: { date: string; artistNorm: string | null; title: string }[],
-): EventCandidate[] {
+): PickedCandidate[] {
+  const scrapedByDate = new Map<string, { artistNorm: string | null; titleNorm: string }[]>()
+  for (const s of scraped) {
+    const list = scrapedByDate.get(s.date) ?? []
+    list.push({ artistNorm: s.artistNorm, titleNorm: normalizeText(s.title) })
+    scrapedByDate.set(s.date, list)
+  }
   const seen = new Set<string>()
-  const picked: EventCandidate[] = []
+  const picked: PickedCandidate[] = []
   for (const row of raw) {
     const parsed = eventCandidateSchema.safeParse(row)
     if (!parsed.success) continue
     const c = parsed.data
     if (c.date < from || c.date > to) continue
     const artist = normalizeText(c.artist)
-    const duplicate = scraped.some(
-      (s) =>
-        s.date === c.date && artist.length >= 2 && (s.artistNorm === artist || normalizeText(s.title).includes(artist)),
-    )
-    const key = fingerprintOf(venueId, c.date, c.start, c.title)
-    if (duplicate || seen.has(key)) continue
-    seen.add(key)
-    picked.push(c)
+    const duplicate =
+      artist.length >= 2 &&
+      (scrapedByDate.get(c.date) ?? []).some((s) => s.artistNorm === artist || s.titleNorm.includes(artist))
+    const fingerprint = fingerprintOf(venueId, c.date, c.start, c.title)
+    if (duplicate || seen.has(fingerprint)) continue
+    seen.add(fingerprint)
+    picked.push({ ...c, fingerprint })
     if (picked.length >= MAX_CANDIDATES) break
   }
   return picked
 }
 
 /** 同じ出典 URL は1回だけ取得する（1ページに複数の公演が載っていることが多い） */
-function groupBySource(candidates: EventCandidate[]): [string, EventCandidate[]][] {
-  const groups = new Map<string, EventCandidate[]>()
+function groupBySource(candidates: PickedCandidate[]): [string, PickedCandidate[]][] {
+  const groups = new Map<string, PickedCandidate[]>()
   for (const c of candidates) {
     const list = groups.get(c.source_url)
     if (list) list.push(c)

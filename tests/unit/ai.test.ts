@@ -60,6 +60,15 @@ describe('出典ページの照合', () => {
     expect(findsDate('2026 TOUR 11/17', '2026-11-07')).toBe(false)
   })
 
+  it('タグの属性・URL の中の日付や名前には一致させない。英字の短い名前は単語として一致したときだけ', () => {
+    const html =
+      '<a class="mail-link ai" href="/event?date=2026-12-05">お問い合わせ（mail）</a><p>2026年12月5日 ほかの公演</p>'
+    expect(checkItems(html, [{ artist: 'Ai', date: '2026-12-05' }])).toEqual([{ artistFound: false, dateFound: true }])
+    expect(checkItems('<p>2026/12/06 AI LIVE</p>', [{ artist: 'Ai', date: '2026-12-05' }])).toEqual([
+      { artistFound: true, dateFound: false },
+    ])
+  })
+
   it('アーティスト名は正規化して照合し、公演ごとに結果を返す', () => {
     const html = '<p>2026年11月7日 Mrs. GREEN APPLE ARENA TOUR</p><p>12月1日 ほかのアーティスト</p>'
     expect(

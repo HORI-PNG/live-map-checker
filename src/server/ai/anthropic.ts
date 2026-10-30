@@ -8,6 +8,8 @@ import { AiError, type AiProvider, type VenueSearchInput } from './types'
 const MAX_SEARCHES = 3
 /** サーバー側の検索が長引いて pause_turn で止まったときに続けさせる回数 */
 const MAX_CONTINUATIONS = 2
+/** 1回の呼び出しの待ち時間。再試行はしない（検索全体を 約3分以内に収める。state.ts の RUNNING_TIMEOUT_MS） */
+const REQUEST_TIMEOUT_MS = 60_000
 
 const REPORT_TOOL: Anthropic.Tool = {
   name: 'report_events',
@@ -84,7 +86,7 @@ export function createAnthropicProvider({ apiKey, model }: { apiKey: string; mod
     estimateCostMicros: () => estimateSearchMicros(model),
 
     async searchVenueEvents(input) {
-      const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 90_000 })
+      const client = new Anthropic({ apiKey, maxRetries: 0, timeout: REQUEST_TIMEOUT_MS })
       const messages: Anthropic.MessageParam[] = [{ role: 'user', content: prompt(input) }]
       const total: TokenUsage = { inputTokens: 0, outputTokens: 0, webSearchCount: 0 }
       const usage = () => usageOf(model, total)

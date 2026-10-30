@@ -149,11 +149,21 @@ export function looseText(text: string): string {
 const toKatakana = (s: string) => s.replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60))
 const toHiragana = (s: string) => s.replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60))
 
-/** アーティスト名（そろえて2文字以上）がページの文字（looseText 済み）に含まれるか */
+/**
+ * 名前（2文字以上）が文字の中にあるか。かなはひらがな・カタカナの両方で探す。
+ * 英数字だけの短い名前（3文字以下。例: 「Ai」）は、ほかの単語の一部（mail など）に一致させない
+ */
+function containsName(page: string, name: string): boolean {
+  if (name.length < 2) return false
+  if (/^[0-9a-z]{2,3}$/.test(name)) return new RegExp(`(?<![0-9a-z])${name}(?![0-9a-z])`).test(page)
+  return [name, toKatakana(name), toHiragana(name)].some((form) => page.includes(form))
+}
+
+/** アーティスト名がページの文字（looseText 済み）に含まれるか。短い英字名は空白などを取り除くと区切れないので見ない */
 export function findsArtist(loosePage: string, artist: string): boolean {
   const name = looseText(artist.normalize('NFKC'))
-  if (name.length < 2) return false
-  return [name, toKatakana(name), toHiragana(name)].some((form) => loosePage.includes(form))
+  if (/^[0-9a-z]{0,3}$/.test(name)) return false
+  return containsName(loosePage, name)
 }
 
 /**
@@ -162,20 +172,17 @@ export function findsArtist(loosePage: string, artist: string): boolean {
  * 2. 見つからなかった公演だけ、タグを外して表記ゆれをそろえた文字で探し直す
  */
 export function checkItems(html: string, items: SourceItem[]): SourceCheck['results'] {
-  const body = html
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, ' ')
-    .normalize('NFKC')
-  const lower = body.toLowerCase()
+  // タグ（属性・URL・クラス名を含む）は外してから探す。属性の中の日付や名前の一部に一致させない
+  const text = pageText(html)
+  const lower = text.toLowerCase()
   const results = items.map((item) => {
     const name = item.artist.normalize('NFKC').toLowerCase().trim()
     return {
-      artistFound: name.length >= 2 && [name, toKatakana(name), toHiragana(name)].some((f) => lower.includes(f)),
-      dateFound: findsDate(body, item.date),
+      artistFound: containsName(lower, name),
+      dateFound: findsDate(text, item.date),
     }
   })
   if (results.every((r) => r.artistFound && r.dateFound)) return results
-  const text = pageText(body)
   const loose = looseText(text)
   return results.map((r, i) => ({
     artistFound: r.artistFound || findsArtist(loose, items[i].artist),

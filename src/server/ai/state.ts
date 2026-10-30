@@ -4,8 +4,11 @@ import type { Db } from '../db/client'
 import { aiSearches, type FETCH_MODES, venueFetchState } from '../db/schema'
 
 export const AI_RESULT_TTL_MS = 24 * 60 * 60 * 1000
-/** これより古い running は、途中で止まったものとみなす */
-export const RUNNING_TIMEOUT_MS = 2 * 60 * 1000
+/**
+ * これより古い running は、途中で止まったものとみなす。1回の検索は最長 約3分
+ * （Claude の呼び出し 60 秒 × 最大 3 回。anthropic.ts）なので、それより長くする
+ */
+export const RUNNING_TIMEOUT_MS = 5 * 60 * 1000
 /** 失敗・予算超過のあと、この間は検索し直さない（開くたびに失敗して費用がかかるのを防ぐ） */
 export const RETRY_AFTER_MS = 30 * 60 * 1000
 /** 自動取得がこれより長く成功していなければ AI で補う */

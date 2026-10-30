@@ -391,6 +391,20 @@ function eventWrites(
         ),
       ),
   )
+  // 取得できた月は、取得の障害中に AI で補った公演を無効にする（取得した公演と二重に出さない）
+  writes.push(
+    db
+      .update(events)
+      .set({ isActive: false })
+      .where(
+        and(
+          eq(events.venueId, venueId),
+          eq(events.sourceKind, 'ai'),
+          gte(events.date, `${pageKey}-01` > today ? `${pageKey}-01` : today),
+          lt(events.date, `${addMonths(pageKey, 1)}-01`),
+        ),
+      ),
+  )
   const upsert = d1.prepare(UPSERT_EVENT_SQL)
   let live = 0
   for (const e of raw) {
