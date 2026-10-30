@@ -32,6 +32,8 @@ export interface ScraperAdapter {
   key: string
   /** 取得ルールを直したら上げる（fetch_runs に記録） */
   version: number
+  /** 今月より先の月のページが 404 なら「公演なし」とみなす（予定が入るまでページを作らない会場） */
+  futureNotFoundIsEmpty?: boolean
   /** 今日から見て取得するページ（今月〜5か月先など） */
   pages(config: Record<string, unknown> | null, today: string): PageSpec[]
   parse(html: string, ctx: { pageUrl: string; pageKey: string }): Promise<ParseResult>
@@ -51,14 +53,19 @@ export function validateEvents(rows: unknown[]): ParseResult {
 
 /**
  * 公演のリンク（相対 URL も可）を絶対 URL にする。取得元と同じホストの http/https だけ残し、
- * それ以外（javascript: や別のサイト）は null にして公演自体は捨てない
+ * それ以外（javascript: や別のサイト）は null にして公演自体は捨てない。
+ * otherHosts: 会場サイトが主催者のサイトへリンクしている場合（熊本城ホール）は別のホストも認める（http/https だけ）
  */
-export function toDetailUrl(href: string | null | undefined, pageUrl: string): string | null {
+export function toDetailUrl(
+  href: string | null | undefined,
+  pageUrl: string,
+  { otherHosts = false }: { otherHosts?: boolean } = {},
+): string | null {
   if (!href?.trim()) return null
   try {
     const url = new URL(href.trim(), pageUrl)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-    return url.host === new URL(pageUrl).host ? url.toString() : null
+    return otherHosts || url.host === new URL(pageUrl).host ? url.toString() : null
   } catch {
     return null
   }

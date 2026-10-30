@@ -3,7 +3,9 @@
 import { and, asc, eq, gte, isNull, lt, or, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { todayJst } from '@/shared/dates'
+import { fnv64 } from '@/shared/hash'
 import { normalizeText } from '@/shared/normalize'
+import { classifyByRules, titleHashOf } from '../classify/rules'
 import { aliased } from '../db/alias'
 import type { Db } from '../db/client'
 import {
@@ -79,11 +81,24 @@ export async function runScrapeTick(
     if (!isAllowedByRobots(robotsBody, `${target.pathname}${target.search}`)) {
       throw new FetchError('robots', `robots.txt で禁止: ${target.pathname}`)
     }
-    const html = await fetchText(fetcher, candidate.url)
-    httpStatus = 200
-    let parsed: Awaited<ReturnType<typeof adapter.parse>>
+    let html: string | null
     try {
-      parsed = await adapter.parse(html, { pageUrl: candidate.url, pageKey: candidate.pageKey })
+      html = await fetchText(fetcher, candidate.url)
+      httpStatus = 200
+    } catch (error) {
+      // 予定が入るまで月のページを作らない会場。今月のページが無いのは構造の変化を疑って失敗にする
+      const notYet =
+        error instanceof FetchError &&
+        error.httpStatus === 404 &&
+        adapter.futureNotFoundIsEmpty &&
+        candidate.pageKey > today.slice(0, 7)
+      if (!notYet) throw error
+      html = null
+      httpStatus = 404
+    }
+    let parsed: Awaited<ReturnType<typeof adapter.parse>> = { events: [], invalid: 0 }
+    try {
+      if (html !== null) parsed = await adapter.parse(html, { pageUrl: candidate.url, pageKey: candidate.pageKey })
     } catch (error) {
       throw new FetchError('parse', `解析中にエラー: ${String(error)}`, 200)
     }
@@ -315,35 +330,37 @@ async function fetchText(fetcher: Fetcher, url: string): Promise<string> {
   return text
 }
 
-/**
- * 重複を防ぐ鍵: 会場・日付・開演時刻・正規化したタイトルのハッシュ（FNV-1a を2本で 64 ビット相当）。
- * 重複判定に使うだけなので暗号用のハッシュは使わない（1件ずつの非同期処理で CPU 時間がかかるため）
- */
+/** 重複を防ぐ鍵: 会場・日付・開演時刻・正規化したタイトルのハッシュ */
 export function fingerprintOf(venueId: number, date: string, startTime: string | null, title: string): string {
   // 開演時刻も含める（同じ日に同じタイトルの昼の部・夜の部があるため）
-  const text = `${venueId}|${date}|${startTime ?? ''}|${normalizeText(title)}`
-  let a = 0x811c9dc5
-  let b = 0x01000193 ^ 0x9e3779b9
-  for (let i = 0; i < text.length; i++) {
-    const c = text.charCodeAt(i)
-    a = Math.imul(a ^ c, 0x01000193)
-    b = Math.imul(b ^ c, 0x01000193 ^ 0x5bd1e995)
-  }
-  return `${(a >>> 0).toString(16).padStart(8, '0')}${(b >>> 0).toString(16).padStart(8, '0')}`
+  return fnv64(`${venueId}|${date}|${startTime ?? ''}|${normalizeText(title)}`)
 }
 
+// ライブ判定: 手動の上書き（classification_cache の manual）→ ルール → AI の判定結果（キャッシュ）→ unknown。
+// キャッシュは同じ文の中で引く（D1 の往復を増やさない）。取り直しで判定が決まらなかったときは前の判定を残し、
+// 手動の判定は手動でしか上書きしない
+const KEEP_CATEGORY = `excluded.classified_by IS NULL
+    OR (events.classified_by = 'manual' AND excluded.classified_by <> 'manual')`
 const UPSERT_EVENT_SQL = `INSERT INTO events
-  (venue_id, source_kind, title, artist_name, artist_norm, tour_name, date, open_time, start_time, detail_url, fingerprint, first_seen_at, last_seen_at, is_active)
-  VALUES (?, 'scrape', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+  (venue_id, source_kind, title, artist_name, artist_norm, tour_name, date, open_time, start_time, detail_url,
+   fingerprint, first_seen_at, last_seen_at, is_active, category, classified_by)
+  SELECT ?1, 'scrape', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11, 1,
+    CASE WHEN c.method = 'manual' THEN c.category ELSE COALESCE(?12, c.category, 'unknown') END,
+    CASE WHEN c.method = 'manual' THEN 'manual' ELSE COALESCE(?13, c.method) END
+  FROM (SELECT 1) LEFT JOIN classification_cache c ON c.title_hash = ?14
+  WHERE true
   ON CONFLICT(fingerprint) DO UPDATE SET
     title = excluded.title, artist_name = excluded.artist_name, artist_norm = excluded.artist_norm,
     tour_name = excluded.tour_name, open_time = excluded.open_time, start_time = excluded.start_time,
-    detail_url = excluded.detail_url, last_seen_at = excluded.last_seen_at, is_active = 1`
+    detail_url = excluded.detail_url, last_seen_at = excluded.last_seen_at, is_active = 1,
+    category = CASE WHEN ${KEEP_CATEGORY} THEN events.category ELSE excluded.category END,
+    classified_by = CASE WHEN ${KEEP_CATEGORY} THEN events.classified_by ELSE excluded.classified_by END`
 
 /**
  * 1か月分の公演を保存する文と、今回見えなかった（中止・終了・掲載終了）公演を無効にする文を writes に足す。
  * 公演の保存は件数に比例して CPU 時間がかかるので、drizzle で組み立てずに準備済みの文を使う。
- * ライブ判定（category）は取得し直しても消さない。表示対象として保存した件数を返す
+ * ライブ判定（category）も一緒に入れる（UPSERT_EVENT_SQL）。
+ * ルールで「ライブではない」と決まったもの以外の件数を返す（手動・AI の判定は保存する文の中で決まるので数えない）
  */
 function eventWrites(
   db: Db,
@@ -375,10 +392,13 @@ function eventWrites(
       ),
   )
   const upsert = d1.prepare(UPSERT_EVENT_SQL)
+  let live = 0
   for (const e of raw) {
     const fingerprint = fingerprintOf(venueId, e.date, e.startTime, e.title)
     if (seen.has(fingerprint)) continue
     seen.add(fingerprint)
+    const rule = classifyByRules(e.title, e.venueCategory)
+    if (rule?.category !== 'non_live') live++
     rawWrites.push(
       upsert.bind(
         venueId,
@@ -392,9 +412,11 @@ function eventWrites(
         e.detailUrl,
         fingerprint,
         nowIso,
-        nowIso,
+        rule?.category ?? null,
+        rule?.method ?? null,
+        titleHashOf(e.title),
       ),
     )
   }
-  return seen.size
+  return live
 }

@@ -1,13 +1,53 @@
 import { env } from 'cloudflare:workers'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { titleHashOf } from '@/server/classify/rules'
 import { createDb } from '@/server/db/client'
+import { kumamotoJoHallAdapter } from '@/server/scraping/adapters/kumamoto-jo-hall'
 import { zeppAdapter } from '@/server/scraping/adapters/zepp'
 import { type Fetcher, runScrapeTick } from '@/server/scraping/runner'
+import kumamotoHtml from '../fixtures/kumamoto/2026-11.html?raw'
 import zeppHtml from '../fixtures/zepp/fukuoka-2026-11.html?raw'
 
 const db = createDb(env.DB)
 // 2026-11-10 12:00 JST
 const NOW = new Date('2026-11-10T03:00:00Z')
+
+describe('熊本城ホールの取得ルール', () => {
+  it('今月から6か月分のページ', () => {
+    const pages = kumamotoJoHallAdapter.pages(null, '2026-11-10')
+    expect(pages.map((p) => p.key)).toEqual(['2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04'])
+    expect(pages[0].url).toBe('https://www.kumamoto-jo-hall.jp/event/202611.html')
+  })
+
+  it('1か月分の HTML から公演を抜き出す。延期・中止の公演は載せない', async () => {
+    const { events, invalid } = await kumamotoJoHallAdapter.parse(kumamotoHtml, {
+      pageUrl: 'https://www.kumamoto-jo-hall.jp/event/202611.html',
+      pageKey: '2026-11',
+    })
+    expect(invalid).toBe(0)
+    expect(events.map((e) => e.date)).toEqual(['2026-11-03', '2026-11-04', '2026-11-15', '2026-11-20', '2026-11-22'])
+    // </br> で区切られた公演名。1行目がアーティスト名、残りがツアー名
+    expect(events[0]).toEqual({
+      title: 'アーティスト A LIVE 2026 "Celebration" TOUR',
+      artistName: 'アーティスト A',
+      tourName: 'LIVE 2026 "Celebration" TOUR',
+      date: '2026-11-03',
+      openTime: '16:00',
+      startTime: '17:00',
+      // 主催者のサイト（別のホスト）へのリンクも残す。文字参照は戻す
+      detailUrl: 'https://promoter-a.example/ticket?id=1&p=2',
+      venueCategory: null,
+    })
+    // <br> と改行・字下げで区切られた公演名、「終了」の時刻は使わない
+    expect(events[2]).toMatchObject({
+      title: '令和８年度 ダミー市民 健康フェスティバル',
+      openTime: '09:30',
+      startTime: '10:00',
+    })
+    // http/https 以外のリンクは捨てる（公演は残す）
+    expect(events[4]).toMatchObject({ artistName: 'アーティスト C', detailUrl: null })
+  })
+})
 
 describe('Zepp の取得ルール', () => {
   it('今月から6か月分のページ', () => {
@@ -78,16 +118,13 @@ describe('runScrapeTick', () => {
     // robots.txt と1ページだけ
     expect(fetcher.calls.filter((u) => !u.endsWith('/robots.txt'))).toHaveLength(1)
 
-    // 3会場×6か月が順番待ちに入る
-    expect(await query('SELECT * FROM fetch_pages')).toHaveLength(18)
+    // 4会場（Zepp 3会場・熊本城ホール）×6か月が順番待ちに入る
+    expect(await query('SELECT * FROM fetch_pages')).toHaveLength(24)
     const saved = await query<{ n: number }>(
       "SELECT count(*) AS n FROM events WHERE source_kind = 'scrape' AND is_active = 1 AND date LIKE '2026-11-%' AND fingerprint NOT LIKE 'sample:%'",
     )
     expect(saved[0].n).toBe(21)
-    // 熊本城ホールの取得ルールは未登録なので「設定エラー」も記録されるが、ここでは取得した1件だけを見る
-    const runs = await query<{ status: string; events_found: number }>(
-      "SELECT status, events_found FROM fetch_runs WHERE message NOT LIKE '設定エラー%'",
-    )
+    const runs = await query<{ status: string; events_found: number }>('SELECT status, events_found FROM fetch_runs')
     expect(runs).toEqual([{ status: 'success', events_found: 21 }])
     const state = await query<{ consecutive_failures: number; last_success_at: string | null }>(
       'SELECT consecutive_failures, last_success_at FROM venue_fetch_state',
@@ -98,12 +135,12 @@ describe('runScrapeTick', () => {
   it('次の起動では、まだ取っていない別のページを取る。同じページは20時間たつまで取らない', async () => {
     const fetcher = fakeFetch({ '/robots.txt': () => new Response(ROBOTS_OK), schedule: () => new Response(zeppHtml) })
     const keys = new Set<string>()
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 24; i++) {
       const r = await runScrapeTick(db, env.DB, fetcher, { now: new Date(NOW.getTime() + i * 600_000) })
       if (r.status !== 'idle') keys.add(`${r.venue}:${r.pageKey}`)
     }
-    expect(keys.size).toBe(18)
-    expect(await runScrapeTick(db, env.DB, fetcher, { now: new Date(NOW.getTime() + 18 * 600_000) })).toEqual({
+    expect(keys.size).toBe(24)
+    expect(await runScrapeTick(db, env.DB, fetcher, { now: new Date(NOW.getTime() + 24 * 600_000) })).toEqual({
       status: 'idle',
     })
   })
@@ -243,6 +280,147 @@ describe('runScrapeTick', () => {
       expect(runs.map((r) => r.slug)).toContain('zepp-fukuoka')
     } finally {
       await env.DB.prepare(`UPDATE venues SET scraper_config = '{"hall":"fukuoka"}' WHERE slug = 'zepp-fukuoka'`).run()
+    }
+  })
+
+  /** 熊本城ホールのページだけが取得の対象になるように、ほかの会場のページは取得済みにする */
+  async function onlyKumamoto() {
+    await syncAndHold()
+    await env.DB.prepare(
+      "UPDATE fetch_pages SET last_fetched_at = ?1 WHERE venue_id <> (SELECT id FROM venues WHERE slug = 'kumamoto-jo-hall')",
+    )
+      .bind(NOW.toISOString())
+      .run()
+  }
+
+  async function syncAndHold() {
+    // 順番待ちを作るためだけに1回動かす（取得するページは idle になるまで捨てる）
+    await runScrapeTick(db, env.DB, fakeFetch({}), { now: new Date(NOW.getTime() - 86_400_000), syncPages: true })
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM fetch_runs'),
+      env.DB.prepare('UPDATE fetch_pages SET last_fetched_at = NULL, last_status = NULL'),
+      env.DB.prepare('DELETE FROM venue_fetch_state'),
+    ])
+  }
+
+  it('熊本城ホール: 来月以降のページが無い（404）のは「公演なし」、今月のページが無いのは失敗', async () => {
+    await onlyKumamoto()
+    const fetcher = fakeFetch({ '/robots.txt': () => new Response('', { status: 404 }) })
+    const results = []
+    for (let i = 0; i < 6; i++) {
+      results.push(await runScrapeTick(db, env.DB, fetcher, { now: new Date(NOW.getTime() + i * 600_000) }))
+    }
+    const byKey = Object.fromEntries(results.map((r) => [r.status === 'idle' ? 'idle' : r.pageKey, r]))
+    expect(byKey['2026-11']).toMatchObject({ status: 'failed', errorKind: 'http' })
+    for (const key of ['2026-12', '2027-01', '2027-02', '2027-03', '2027-04']) {
+      expect(byKey[key]).toMatchObject({ status: 'success', eventsFound: 0 })
+    }
+  })
+
+  it('熊本城ホール: 取得した公演をライブ判定して保存する（漫才・健康フェスティバルは表示しない）', async () => {
+    await onlyKumamoto()
+    const fetcher = fakeFetch({
+      '/robots.txt': () => new Response('', { status: 404 }),
+      '/event/202611.html': () => new Response(kumamotoHtml),
+    })
+    expect(await runScrapeTick(db, env.DB, fetcher, { now: NOW })).toMatchObject({
+      status: 'success',
+      venue: 'kumamoto-jo-hall',
+      eventsFound: 5,
+    })
+    const rows = await query<{ date: string; category: string; classified_by: string | null }>(
+      "SELECT date, category, classified_by FROM events WHERE source_kind = 'scrape' AND fingerprint NOT LIKE 'sample:%' ORDER BY date",
+    )
+    expect(rows).toEqual([
+      { date: '2026-11-03', category: 'live', classified_by: 'rule' },
+      { date: '2026-11-04', category: 'live', classified_by: 'rule' },
+      { date: '2026-11-15', category: 'non_live', classified_by: 'rule' },
+      { date: '2026-11-20', category: 'non_live', classified_by: 'rule' },
+      { date: '2026-11-22', category: 'live', classified_by: 'rule' },
+    ])
+    const live = await query<{ n: number }>("SELECT events_live AS n FROM fetch_runs WHERE message = '2026-11'")
+    // ルールで「ライブではない」と決まった2件を除く
+    expect(live[0].n).toBe(3)
+  })
+
+  it('ライブ判定: 手動の上書きが最優先。取り直しても AI・手動の判定は消えない', async () => {
+    const fetcher = fakeFetch({ '/robots.txt': () => new Response(ROBOTS_OK), schedule: () => new Response(zeppHtml) })
+    const titleOf = async (date: string) =>
+      (
+        await query<{ title: string }>(
+          `SELECT title FROM events WHERE date = '${date}' AND source_kind = 'scrape' AND fingerprint NOT LIKE 'sample:%' ORDER BY id LIMIT 1`,
+        )
+      )[0].title
+    await runScrapeTick(db, env.DB, fetcher, { now: NOW })
+    const categories = await query<{ category: string; n: number }>(
+      "SELECT category, count(*) AS n FROM events WHERE source_kind = 'scrape' AND fingerprint NOT LIKE 'sample:%' GROUP BY category",
+    )
+    // fixture は「[ツアー名] 2026 公演N」なので、すべてルールでライブ
+    expect(categories).toEqual([{ category: 'live', n: 21 }])
+
+    const manualTitle = await titleOf('2026-11-01')
+    try {
+      // 1件を手動で「ライブではない」に。別の1件はルールで決まらなかったことにして AI の判定を入れておく
+      await env.DB.batch([
+        env.DB.prepare(
+          "INSERT INTO classification_cache (title_hash, title, category, method) VALUES (?1, ?2, 'non_live', 'manual')",
+        ).bind(titleHashOf(manualTitle), manualTitle),
+        env.DB.prepare(
+          "UPDATE events SET category = 'non_live', classified_by = 'ai' WHERE id = (SELECT id FROM events WHERE date = '2026-11-02' AND source_kind = 'scrape' ORDER BY id LIMIT 1)",
+        ),
+        env.DB.prepare("UPDATE fetch_pages SET last_fetched_at = '2026-11-01T00:00:00Z'"),
+      ])
+      await runScrapeTick(db, env.DB, fetcher, { now: new Date(NOW.getTime() + 21 * 3600_000) })
+      const after = await query<{ date: string; category: string; classified_by: string }>(
+        "SELECT date, category, classified_by FROM events WHERE date IN ('2026-11-01', '2026-11-02') AND source_kind = 'scrape' AND fingerprint NOT LIKE 'sample:%' ORDER BY date, id",
+      )
+      expect(after[0]).toEqual({ date: '2026-11-01', category: 'non_live', classified_by: 'manual' })
+      // ルールでライブと決まるタイトルは、ルールの判定に戻る（AI の判定は、ルールで決まらないものにだけ使う）
+      expect(after.find((r) => r.date === '2026-11-02')).toMatchObject({ category: 'live', classified_by: 'rule' })
+
+      // 手動の行は、ルールで判定し直しても上書きしない（キャッシュから手動の行を消しても残る）
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM classification_cache'),
+        env.DB.prepare("UPDATE fetch_pages SET last_fetched_at = '2026-11-01T00:00:00Z'"),
+      ])
+      await runScrapeTick(db, env.DB, fetcher, { now: new Date(NOW.getTime() + 42 * 3600_000) })
+      const kept = await query<{ category: string; classified_by: string }>(
+        "SELECT category, classified_by FROM events WHERE date = '2026-11-01' AND source_kind = 'scrape' AND fingerprint NOT LIKE 'sample:%' ORDER BY id LIMIT 1",
+      )
+      expect(kept[0]).toEqual({ category: 'non_live', classified_by: 'manual' })
+    } finally {
+      await env.DB.prepare('DELETE FROM classification_cache').run()
+    }
+  })
+
+  it('ライブ判定: ルールで決まらないタイトルは AI の判定結果（キャッシュ）を使い、取り直しても消さない', async () => {
+    // アーティスト名だけのタイトル（ルールで決まらない）にしたページ
+    const plain = zeppHtml
+      .replace(/(sch-content-text__ttl">)[^<]*/g, '$1')
+      .replace(/アーティスト (\d+)/g, 'ダミー名 $1')
+    const fetcher = fakeFetch({ '/robots.txt': () => new Response(ROBOTS_OK), schedule: () => new Response(plain) })
+    await runScrapeTick(db, env.DB, fetcher, { now: NOW })
+    const unknown = await query<{ title: string }>(
+      "SELECT title FROM events WHERE source_kind = 'scrape' AND fingerprint NOT LIKE 'sample:%' AND category = 'unknown' ORDER BY date LIMIT 2",
+    )
+    expect(unknown).toHaveLength(2)
+    try {
+      await env.DB.batch([
+        env.DB.prepare(
+          "INSERT INTO classification_cache (title_hash, title, category, method) VALUES (?1, ?2, 'live', 'ai')",
+        ).bind(titleHashOf(unknown[0].title), unknown[0].title),
+        env.DB.prepare("UPDATE fetch_pages SET last_fetched_at = '2026-11-01T00:00:00Z'"),
+      ])
+      await runScrapeTick(db, env.DB, fetcher, { now: new Date(NOW.getTime() + 21 * 3600_000) })
+      const rows = await query<{ title: string; category: string; classified_by: string | null }>(
+        `SELECT title, category, classified_by FROM events WHERE title IN ('${unknown[0].title}', '${unknown[1].title}') AND source_kind = 'scrape' ORDER BY date`,
+      )
+      expect(rows).toEqual([
+        { title: unknown[0].title, category: 'live', classified_by: 'ai' },
+        { title: unknown[1].title, category: 'unknown', classified_by: null },
+      ])
+    } finally {
+      await env.DB.prepare('DELETE FROM classification_cache').run()
     }
   })
 })
